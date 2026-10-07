@@ -1,0 +1,474 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}数据看板 - 校园二手交易平台{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-hero {
+        background: linear-gradient(120deg, var(--brand) 0%, var(--brand-strong) 100%);
+        color: #fff;
+        border-radius: 18px;
+        padding: 26px 28px;
+        margin-bottom: 22px;
+        box-shadow: var(--shadow);
+    }
+    .stat-hero h1 { font-size: 1.5rem; margin-bottom: 6px; font-weight: 700; }
+    .stat-hero p { margin: 0; opacity: .9; font-size: .92rem; }
+
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 22px;
+    }
+    @media (max-width: 992px) {
+        .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 520px) {
+        .kpi-grid { grid-template-columns: 1fr; }
+    }
+    .kpi {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 16px 18px;
+        box-shadow: 0 6px 18px rgba(15, 33, 52, .06);
+    }
+    .kpi-label { font-size: .8rem; color: var(--text-muted); margin-bottom: 6px; }
+    .kpi-value {
+        font-size: 1.55rem; font-weight: 800; color: var(--brand);
+        line-height: 1.15; white-space: nowrap;
+    }
+    .kpi-value small { font-size: .8rem; font-weight: 500; color: var(--text-muted); }
+    .kpi-sub { font-size: .78rem; color: var(--text-muted); margin-top: 5px; }
+
+    .chart-card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 18px 20px 20px;
+        box-shadow: 0 6px 18px rgba(15, 33, 52, .06);
+        height: 100%;
+    }
+    .chart-card h3 {
+        font-size: 1rem; font-weight: 700; margin-bottom: 14px;
+        display: flex; align-items: center; gap: 8px;
+    }
+    .chart-card h3 i { color: var(--accent); }
+    .chart-box { position: relative; height: 260px; }
+    .chart-box.tall { height: 300px; }
+
+    .stat-table { width: 100%; font-size: .86rem; }
+    .stat-table th {
+        background: #f2f7f5; color: var(--brand-strong);
+        font-weight: 600; padding: 9px 10px; text-align: left;
+        border-bottom: 1px solid var(--line); white-space: nowrap;
+    }
+    .stat-table td {
+        padding: 9px 10px; border-bottom: 1px solid #f0f4f7;
+        color: var(--text-main);
+    }
+    .stat-table tr:last-child td { border-bottom: none; }
+    .stat-table tr:hover td { background: #fafcfb; }
+    .badge-soft {
+        display: inline-block; padding: 2px 9px; border-radius: 999px;
+        font-size: .75rem; background: #e8f5f1; color: var(--brand-strong);
+    }
+    .empty-tip {
+        color: var(--text-muted); font-size: .86rem;
+        text-align: center; padding: 40px 0;
+    }
+    .note-box {
+        background: #fff8ec; border: 1px solid #f5e0b8; border-radius: 12px;
+        padding: 12px 16px; font-size: .85rem; color: #8a6212; margin-bottom: 22px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="stat-hero">
+    <h1><i class="fa-solid fa-chart-line"></i> 平台数据看板</h1>
+    <p>汇总商品供给、订单流转、用户与评价等业务指标，用于运营决策参考。</p>
+</div>
+
+{# ---------------------------------------------------------------- 核心指标 #}
+<div class="kpi-grid">
+    <div class="kpi">
+        <div class="kpi-label">商品总数</div>
+        <div class="kpi-value">{{ goods_total }}<small> 件</small></div>
+        <div class="kpi-sub">在售 {{ goods_on_sale }} · 已售 {{ goods_sold }}</div>
+    </div>
+    <div class="kpi">
+        <div class="kpi-label">订单总数</div>
+        <div class="kpi-value">{{ order_total }}<small> 笔</small></div>
+        <div class="kpi-sub">进行中 {{ order_running }} · 已取消 {{ order_cancelled }}</div>
+    </div>
+    <div class="kpi">
+        <div class="kpi-label">成交率</div>
+        <div class="kpi-value">{{ finish_rate }}<small> %</small></div>
+        <div class="kpi-sub">已完成 {{ order_finished }} / 全部 {{ order_total }}</div>
+    </div>
+    <div class="kpi">
+        <div class="kpi-label">成交金额</div>
+        <div class="kpi-value">{{ amount_total }}<small> 元</small></div>
+        <div class="kpi-sub">客单价 {{ amount_avg }} 元</div>
+    </div>
+    <div class="kpi">
+        <div class="kpi-label">平均商品价格</div>
+        <div class="kpi-value">{{ avg_price }}<small> 元</small></div>
+        <div class="kpi-sub">最高 {{ max_price }} · 最低 {{ min_price }}</div>
+    </div>
+    <div class="kpi">
+        <div class="kpi-label">注册用户</div>
+        <div class="kpi-value">{{ user_total }}<small> 人</small></div>
+        <div class="kpi-sub">收藏 {{ favorite_total }} 次</div>
+    </div>
+    <div class="kpi">
+        <div class="kpi-label">商品评价</div>
+        <div class="kpi-value">{{ comment_total }}<small> 条</small></div>
+        <div class="kpi-sub">平均评分 {{ rating_avg }} / 5</div>
+    </div>
+    <div class="kpi">
+        <div class="kpi-label">待处理举报</div>
+        <div class="kpi-value">{{ report_pending }}<small> 条</small></div>
+        <div class="kpi-sub">举报总计 {{ report_total }} 条</div>
+    </div>
+</div>
+
+{% if order_total < 10 or goods_total < 10 %}
+<div class="note-box">
+    <i class="fa-solid fa-circle-info"></i>
+    当前为演示数据集，记录数较少，图表用于展示统计维度与口径；
+    数据量增加后，本页各项指标会自动更新。
+</div>
+{% endif %}
+
+{# ---------------------------------------------------------------- 图表区 #}
+<div class="row g-3 mb-3">
+    <div class="col-lg-6">
+        <div class="chart-card">
+            <h3><i class="fa-solid fa-filter"></i> 订单流转状态分布</h3>
+            <div class="chart-box">
+                {% if order_status_data %}
+                    <canvas id="orderStatusChart"></canvas>
+                {% else %}
+                    <div class="empty-tip">暂无订单数据</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="chart-card">
+            <h3><i class="fa-solid fa-layer-group"></i> 各分类商品数量与均价</h3>
+            <div class="chart-box">
+                {% if categories %}
+                    <canvas id="categoryChart"></canvas>
+                {% else %}
+                    <div class="empty-tip">暂无分类数据</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-4">
+        <div class="chart-card">
+            <h3><i class="fa-solid fa-tags"></i> 商品价格区间分布</h3>
+            <div class="chart-box">
+                <canvas id="priceChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="chart-card">
+            <h3><i class="fa-solid fa-chart-column"></i> 商品发布趋势（按月）</h3>
+            <div class="chart-box">
+                {% if monthly_trend %}
+                    <canvas id="trendChart"></canvas>
+                {% else %}
+                    <div class="empty-tip">暂无发布记录</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ---------------------------------------------------------------- 明细表 #}
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="chart-card">
+            <h3><i class="fa-solid fa-table-list"></i> 分类供需与成交</h3>
+            <table class="stat-table">
+                <thead>
+                    <tr>
+                        <th>分类</th>
+                        <th>商品数</th>
+                        <th>平均价格</th>
+                        <th>成交金额</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in categories %}
+                    <tr>
+                        <td>{{ c.name }}</td>
+                        <td>{{ c.count }}</td>
+                        <td>{{ c.avg_price }} 元</td>
+                        <td>{{ c.revenue }} 元</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="empty-tip">暂无分类数据</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="chart-card">
+            <h3><i class="fa-solid fa-fire"></i> 商品热度排行</h3>
+            <table class="stat-table">
+                <thead>
+                    <tr>
+                        <th>商品</th>
+                        <th>分类</th>
+                        <th>价格</th>
+                        <th>收藏</th>
+                        <th>成交</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for g in hot_goods_data %}
+                    <tr>
+                        <td>{{ g.title }}</td>
+                        <td><span class="badge-soft">{{ g.category }}</span></td>
+                        <td>{{ g.price }} 元</td>
+                        <td>{{ g.fav }}</td>
+                        <td>{{ g.sold }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="empty-tip">暂无商品数据</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{# 图表数据通过 json_script 安全输出为 JSON，JS 侧统一用 readJSON() 读取 #}
+{{ chart_order_labels|json_script:"d-order-labels" }}
+{{ chart_order_values|json_script:"d-order-values" }}
+{{ chart_order_percents|json_script:"d-order-percents" }}
+{{ chart_cat_names|json_script:"d-cat-names" }}
+{{ chart_cat_counts|json_script:"d-cat-counts" }}
+{{ chart_cat_avg|json_script:"d-cat-avg" }}
+{{ chart_price_labels|json_script:"d-price-labels" }}
+{{ chart_price_counts|json_script:"d-price-counts" }}
+{{ chart_trend_months|json_script:"d-trend-months" }}
+{{ chart_trend_counts|json_script:"d-trend-counts" }}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+    if (typeof Chart === 'undefined') {
+        console.warn('Chart.js 未加载，图表跳过渲染');
+        return;
+    }
+
+    /** 读取 json_script 输出的数据 */
+    function readJSON(id, fallback) {
+        var el = document.getElementById(id);
+        if (!el) { return fallback; }
+        try { return JSON.parse(el.textContent); } catch (e) { return fallback; }
+    }
+
+    Chart.defaults.font.family = "'Noto Sans SC', sans-serif";
+    Chart.defaults.color = '#5b6678';
+
+    var BRAND = '#117a65';
+    var ACCENT = '#f59e0b';
+    var PALETTE = ['#117a65', '#2f9e8f', '#66b8a9', '#f59e0b',
+                   '#e0a339', '#8e6bbf', '#d9534f'];
+    var GRID = '#eef3f6';
+
+    // ---------------------------------------------------- 订单状态分布
+    var orderCanvas = document.getElementById('orderStatusChart');
+    if (orderCanvas) {
+        var oLabels = readJSON('d-order-labels', []);
+        var oValues = readJSON('d-order-values', []);
+        var oPercents = readJSON('d-order-percents', []);
+        new Chart(orderCanvas, {
+            type: 'bar',
+            data: {
+                labels: oLabels,
+                datasets: [{
+                    label: '订单数量',
+                    data: oValues,
+                    backgroundColor: BRAND,
+                    borderRadius: 6,
+                    maxBarThickness: 46
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            afterLabel: function (ctx) {
+                                var p = oPercents[ctx.dataIndex];
+                                return (p === undefined) ? '' : '占比 ' + p + '%';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true, ticks: { precision: 0 },
+                        grid: { color: GRID }
+                    },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // ---------------------------------------------------- 各分类商品数量与均价
+    var catCanvas = document.getElementById('categoryChart');
+    if (catCanvas) {
+        new Chart(catCanvas, {
+            type: 'bar',
+            data: {
+                labels: readJSON('d-cat-names', []),
+                datasets: [
+                    {
+                        label: '商品数量（件）',
+                        data: readJSON('d-cat-counts', []),
+                        backgroundColor: BRAND,
+                        borderRadius: 6,
+                        maxBarThickness: 40,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: '平均价格（元）',
+                        data: readJSON('d-cat-avg', []),
+                        type: 'line',
+                        borderColor: ACCENT,
+                        backgroundColor: ACCENT,
+                        tension: 0.3,
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } },
+                scales: {
+                    y: {
+                        beginAtZero: true, position: 'left',
+                        title: { display: true, text: '商品数量' },
+                        ticks: { precision: 0 }, grid: { color: GRID }
+                    },
+                    y1: {
+                        beginAtZero: true, position: 'right',
+                        title: { display: true, text: '平均价格（元）' },
+                        grid: { display: false }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: {
+                            maxRotation: 40,
+                            minRotation: 0,
+                            autoSkip: false,
+                            font: { size: 11 }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // ---------------------------------------------------- 价格区间分布
+    var priceCanvas = document.getElementById('priceChart');
+    if (priceCanvas) {
+        new Chart(priceCanvas, {
+            type: 'doughnut',
+            data: {
+                labels: readJSON('d-price-labels', []),
+                datasets: [{
+                    data: readJSON('d-price-counts', []),
+                    backgroundColor: PALETTE,
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            boxWidth: 12,
+                            padding: 8,
+                            font: { size: 11 },
+                            generateLabels: function (chart) {
+                                // 数量为 0 的区间不显示在图例里，避免空档干扰阅读
+                                var data = chart.data;
+                                return data.labels.map(function (label, i) {
+                                    var v = data.datasets[0].data[i];
+                                    if (!v) { return null; }
+                                    return {
+                                        text: label,
+                                        fillStyle: data.datasets[0].backgroundColor[i],
+                                        strokeStyle: '#fff',
+                                        lineWidth: 1,
+                                        index: i
+                                    };
+                                }).filter(Boolean);
+                            }
+                        }
+                    }
+                },
+                cutout: '55%'
+            }
+        });
+    }
+
+    // ---------------------------------------------------- 商品发布趋势
+    var trendCanvas = document.getElementById('trendChart');
+    if (trendCanvas) {
+        new Chart(trendCanvas, {
+            type: 'line',
+            data: {
+                labels: readJSON('d-trend-months', []),
+                datasets: [{
+                    label: '新增商品数',
+                    data: readJSON('d-trend-counts', []),
+                    borderColor: BRAND,
+                    backgroundColor: 'rgba(17,122,101,.14)',
+                    fill: true,
+                    tension: 0.35,
+                    pointRadius: 5,
+                    pointBackgroundColor: BRAND
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        beginAtZero: true, ticks: { precision: 0 },
+                        grid: { color: GRID }
+                    },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+})();
+</script>
+{% endblock %}

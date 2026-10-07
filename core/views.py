@@ -3,7 +3,7 @@ from django.contrib.auth import authenticate, login, logout, update_session_auth
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Avg, Count, Max, Min, Sum
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -1047,3 +1047,165 @@ def add_goods_report(request, goods_id):
 def my_reports(request):
     reports = GoodsReport.objects.filter(reporter=request.user).select_related('goods').order_by('-create_time')
     return render(request, 'core/my_reports.html', {'reports': reports})
+
+
+# ============================================================================
+#  数据统计（平台运营看板）
+# ----------------------------------------------------------------------------
+#  该视图把平台业务数据汇总成三部分：
+#    ① 核心指标卡片：商品/订单/用户/评价的总量与结构
+#    ② 订单漏斗：从下单到完成各状态的数量与占比
+#    ③ 分类与趋势：各分类供给与成交、商品发布趋势、商品热度排行
+#  技术要点：用 Django ORM 的聚合函数（Count / Sum / Avg / Max / Min）
+#            在数据库侧完成统计，而不是把数据取到 Python 里再循环。
+# ============================================================================
+def statistics(request):
+    """平台运营数据看板：展示商品、订单、用户、评价的统计结果。"""
+    today = timezone.now().date()
+
+    # ---------------- 商品统计 ----------------
+    # 注意：Goods.STATUS_CHOICES 为 (0,待上架)(1,在售)(2,已售出)，
+    # 模型未定义命名常量，这里沿用项目既有的裸整数写法
+    goods_total = Goods.objects.count()
+    goods_on_sale = Goods.objects.filter(status=1).count()
+    goods_sold = Goods.objects.filter(status=2).count()
+    goods_pending = Goods.objects.filter(status=0).count()
+    goods_out_of_stock = Goods.objects.filter(stock=0).count()
+    price_stats = Goods.objects.aggregate(
+        avg=Avg('price'), max=Max('price'), min=Min('price'), total=Sum('price')
+    )
+    # 今日新增商品
+    goods_today = Goods.objects.filter(create_time__date=today).count()
+
+    # ---------------- 订单统计 ----------------
+    order_total = Order.objects.count()
+    order_finished = Order.objects.filter(order_status=Order.ORDER_STATUS_COMPLETED).count()
+    order_cancelled = Order.objects.filter(order_status=Order.ORDER_STATUS_CANCELLED).count()
+    order_running = Order.objects.filter(order_status__in=RUNNING_ORDER_STATUSES).count()
+    amount_stats = Order.objects.filter(
+        order_status=Order.ORDER_STATUS_COMPLETED
+    ).aggregate(total=Sum('amount'), avg=Avg('amount'), max=Max('amount'))
+    # 成交率 = 已完成订单 / 全部订单
+    finish_rate = round(order_finished * 100.0 / order_total, 1) if order_total else 0
+
+    # ---------------- 用户与评价 ----------------
+    user_total = User.objects.count()
+    comment_total = Comment.objects.count()
+    rating_avg = Comment.objects.aggregate(avg=Avg('rating'))['avg']
+    favorite_total = Favorite.objects.count()
+    report_total = GoodsReport.objects.count()
+    report_pending = GoodsReport.objects.filter(
+        status=GoodsReport.STATUS_PENDING).count()
+
+    # ---------------- 订单状态分布（用于漏斗/柱状图）----------------
+    status_labels = dict(Order.ORDER_STATUS_CHOICES)
+    status_rows = (Order.objects.values('order_status')
+                   .annotate(n=Count('id')).order_by('order_status'))
+    order_status_data = [
+        {'label': status_labels.get(r['order_status'], '未知'),
+         'value': r['n'],
+         'percent': round(r['n'] * 100.0 / order_total, 1) if order_total else 0}
+        for r in status_rows
+    ]
+
+    # ---------------- 各分类统计 ----------------
+    categories = []
+    for c in Category.objects.annotate(
+            n=Count('goods'), avg_price=Avg('goods__price')).order_by('-n', 'name'):
+        # 该分类下已完成订单的成交额
+        revenue = (Order.objects
+                   .filter(order_status=Order.ORDER_STATUS_COMPLETED,
+                           goods__category=c)
+                   .aggregate(s=Sum('amount'))['s']) or 0
+        categories.append({
+            'name': c.name,
+            'count': c.n,
+            'avg_price': round(c.avg_price, 2) if c.avg_price else 0,
+            'revenue': revenue,
+        })
+
+    # ---------------- 商品发布趋势（按月）----------------
+    monthly = {}
+    for g in Goods.objects.values('create_time'):
+        if not g['create_time']:
+            continue
+        key = g['create_time'].strftime('%Y-%m')
+        monthly[key] = monthly.get(key, 0) + 1
+    monthly_trend = [{'month': k, 'count': monthly[k]} for k in sorted(monthly)]
+
+    # ---------------- 商品热度排行 ----------------
+    # 注意：Order.goods 的反向查询名是 order（不是 order_set / orders）
+    hot_goods = (Goods.objects
+                 .annotate(fav=Count('favorited_by', distinct=True),
+                           sold=Count('order', distinct=True))
+                 .select_related('category')
+                 .order_by('-fav', '-sold', '-price')[:5])
+    hot_goods_data = [{
+        'title': g.title[:14],
+        'price': float(g.price or 0),
+        'fav': g.fav,
+        'sold': g.sold,
+        'category': g.category.name if g.category else '未分类',
+    } for g in hot_goods]
+
+    # ---------------- 价格区间分布 ----------------
+    segments = [('0-50 元', 0, 50), ('50-200 元', 50, 200),
+                ('200-1000 元', 200, 1000), ('1000-5000 元', 1000, 5000),
+                ('5000 元以上', 5000, None)]
+    price_segments = []
+    for label, low, high in segments:
+        qs = Goods.objects.filter(price__gte=low)
+        if high is not None:
+            qs = qs.filter(price__lt=high)
+        price_segments.append({'label': label, 'count': qs.count()})
+
+    # ---------------- 汇总给模板 ----------------
+    # 图表数据用 json_script 输出（模板中 |json_script:"xxx"），
+    # 避免手工拼 JSON 字符串，既安全（自动转义）又不用写 |safe
+    context = {
+        'goods_total': goods_total,
+        'goods_on_sale': goods_on_sale,
+        'goods_sold': goods_sold,
+        'goods_pending': goods_pending,
+        'goods_out_of_stock': goods_out_of_stock,
+        'goods_today': goods_today,
+        'avg_price': round(price_stats['avg'], 2) if price_stats['avg'] else 0,
+        'max_price': price_stats['max'] or 0,
+        'min_price': price_stats['min'] or 0,
+        'price_total': price_stats['total'] or 0,
+
+        'order_total': order_total,
+        'order_finished': order_finished,
+        'order_cancelled': order_cancelled,
+        'order_running': order_running,
+        'finish_rate': finish_rate,
+        'amount_total': amount_stats['total'] or 0,
+        'amount_avg': round(amount_stats['avg'], 2) if amount_stats['avg'] else 0,
+        'amount_max': amount_stats['max'] or 0,
+        'order_status_data': order_status_data,
+
+        'user_total': user_total,
+        'comment_total': comment_total,
+        'rating_avg': round(rating_avg, 2) if rating_avg else 0,
+        'favorite_total': favorite_total,
+        'report_total': report_total,
+        'report_pending': report_pending,
+
+        'categories': categories,
+        'monthly_trend': monthly_trend,
+        'hot_goods_data': hot_goods_data,
+        'price_segments': price_segments,
+
+        # ---- 图表专用的纯数组（供 json_script 输出给 Chart.js）----
+        'chart_order_labels': [d['label'] for d in order_status_data],
+        'chart_order_values': [d['value'] for d in order_status_data],
+        'chart_order_percents': [d['percent'] for d in order_status_data],
+        'chart_cat_names': [c['name'] for c in categories],
+        'chart_cat_counts': [c['count'] for c in categories],
+        'chart_cat_avg': [float(c['avg_price']) for c in categories],
+        'chart_price_labels': [p['label'] for p in price_segments],
+        'chart_price_counts': [p['count'] for p in price_segments],
+        'chart_trend_months': [m['month'] for m in monthly_trend],
+        'chart_trend_counts': [m['count'] for m in monthly_trend],
+    }
+    return render(request, 'core/statistics.html', context)

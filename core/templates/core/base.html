@@ -382,6 +382,7 @@
 
             <div class="nav-right">
                 {% url 'core:goods_list' as goods_list_url %}
+                {% url 'core:statistics' as statistics_url %}
                 {% url 'core:goods_publish' as goods_publish_url %}
                 {% url 'core:my_goods' as my_goods_url %}
                 {% url 'core:order_list' as order_list_url %}
@@ -403,6 +404,8 @@
                         <span class="user-nickname">{{ user.userprofile.nickname|default:user.username }}</span>
                     </a>
                     <a href="{{ goods_list_url }}" class="nav-btn {% if request.path == goods_list_url %}nav-btn-primary{% endif %}">逛商品</a>
+                    <a href="{{ statistics_url }}" class="nav-btn {% if request.path == statistics_url %}nav-btn-primary{% endif %}">数据看板</a>
+                    <a href="{{ statistics_url }}" class="nav-btn {% if request.path == statistics_url %}nav-btn-primary{% endif %}">数据看板</a>
                     <a href="{{ goods_publish_url }}" class="nav-btn {% if request.path == goods_publish_url %}nav-btn-primary{% endif %}">发布</a>
                     <a href="{{ my_goods_url }}" class="nav-btn {% if request.path == my_goods_url %}nav-btn-primary{% endif %}">我卖出</a>
                     <a href="{{ order_list_url }}" class="nav-btn {% if request.path == order_list_url %}nav-btn-primary{% endif %}">我买到</a>

@@ -1,3 +1,5 @@
+# 项目运行所需的依赖（Web 应用本体）
+# 安装：pip install -r requirements.txt
 Django==4.2.27
 Pillow==11.3.0
 asgiref==3.11.0

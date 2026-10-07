@@ -50,4 +50,6 @@ urlpatterns = [
     path('personal/avatar/update/', views.update_avatar, name='update_avatar'),
     path('personal/profile/update/', views.update_profile, name='update_profile'),
     path('personal/password/update/', views.update_password, name='update_password'),
+    # 数据统计看板
+    path('statistics/', views.statistics, name='statistics'),
 ]
