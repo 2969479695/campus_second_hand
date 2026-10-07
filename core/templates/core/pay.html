@@ -1,0 +1,71 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}订单支付{% endblock %}
+
+{% block content %}
+<div style="max-width:760px; margin:20px auto;">
+    {% if error %}
+        <div class="alert alert-error">{{ error }}</div>
+    {% else %}
+        <div style="background:#fff; border:1px solid #dce5ec; border-radius:14px; padding:18px;">
+            <h3 style="margin-bottom:10px; color:#0c5f4e;">订单支付</h3>
+            <p><strong>订单号：</strong> {{ order.order_no }}</p>
+            <p><strong>商品：</strong> {{ order.goods }}</p>
+            <p><strong>金额：</strong> ¥{{ order.amount }}</p>
+            <p><strong>当前支付状态：</strong> {{ order.get_pay_status_display }}</p>
+
+            <form id="payForm" method="post" action="{% url 'core:order_pay' %}" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+              {% csrf_token %}
+              <input type="hidden" id="order_id" name="order_id" value="{{ order.order_no }}">
+              <button id="payBtn" type="button" class="btn" style="width:auto;">确认支付</button>
+              <a href="{% url 'core:order_list' %}" class="btn btn-link" style="width:auto;">查看订单列表</a>
+            </form>
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
+<script>
+function getCookie(name) {
+  const cookieValue = document.cookie.split('; ').find(row => row.startsWith(name + '='));
+  return cookieValue ? decodeURIComponent(cookieValue.split('=')[1]) : null;
+}
+
+$(function(){
+  $("#payBtn").on("click", function(){
+    const orderId = $("#order_id").val();
+    if(!orderId){ alert('缺少订单信息'); return; }
+    const $btn = $(this);
+    $btn.prop('disabled', true).text('处理中...');
+    const csrfToken = $("input[name='csrfmiddlewaretoken']").val() || getCookie('csrftoken');
+
+    $.ajax({
+      url: "{% url 'core:order_pay' %}",
+      type: 'POST',
+      dataType: 'json',
+      data: { order_id: orderId },
+      headers: { 'X-CSRFToken': csrfToken },
+      success: function(resp){
+        if(resp && resp.success){
+          alert(resp.message || '支付成功');
+          setTimeout(function(){ window.location.href = "{% url 'core:order_list' %}"; }, 400);
+        } else {
+          alert((resp && resp.message) || '支付失败');
+          $btn.prop('disabled', false).text('确认支付');
+        }
+      },
+      error: function(xhr){
+        let msg = '网络或服务器错误';
+        try{ const data = JSON.parse(xhr.responseText); msg = data.message || msg; }catch(e){}
+        alert(msg);
+        $btn.prop('disabled', false).text('确认支付');
+      }
+    });
+  });
+});
+</script>
+{% endblock %}

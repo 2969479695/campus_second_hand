@@ -1,0 +1,92 @@
+{% extends 'core/base.html' %}
+
+{% block title %}发布商品 - 校园二手交易平台{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1>📦 发布商品</h1>
+    <p>分享你的闲置物品，让它们找到新主人</p>
+</div>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    
+    <div class="form-group">
+        <label for="{{ form.title.id_for_label }}">{{ form.title.label }}<span style="color: #e74c3c;"> *</span></label>
+        {{ form.title }}
+        {% if form.title.errors %}
+            <ul class="errorlist">
+                {% for error in form.title.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+    
+    <div class="form-group">
+        <label for="{{ form.price.id_for_label }}">{{ form.price.label }}<span style="color: #e74c3c;"> *</span></label>
+        {{ form.price }}
+        {% if form.price.errors %}
+            <ul class="errorlist">
+                {% for error in form.price.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+
+    <div class="form-group">
+        <label for="{{ form.stock.id_for_label }}">{{ form.stock.label }}<span style="color: #e74c3c;"> *</span></label>
+        {{ form.stock }}
+        {% if form.stock.errors %}
+            <ul class="errorlist">
+                {% for error in form.stock.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+    
+    <div class="form-group">
+        <label for="{{ form.category.id_for_label }}">{{ form.category.label }}<span style="color: #e74c3c;"> *</span></label>
+        {{ form.category }}
+        {% if form.category.errors %}
+            <ul class="errorlist">
+                {% for error in form.category.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+    
+    <div class="form-group">
+        <label for="{{ form.desc.id_for_label }}">{{ form.desc.label }}<span style="color: #e74c3c;"> *</span></label>
+        {{ form.desc }}
+        {% if form.desc.errors %}
+            <ul class="errorlist">
+                {% for error in form.desc.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+    
+    <div class="form-group">
+        <label for="{{ form.image.id_for_label }}">{{ form.image.label }}</label>
+        {{ form.image }}
+        {% if form.image.errors %}
+            <ul class="errorlist">
+                {% for error in form.image.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+    
+    <button type="submit" class="btn">发布商品</button>
+</form>
+
+<div class="link-text">
+    <a href="{% url 'core:goods_list' %}">← 返回商品列表</a>
+</div>
+{% endblock %}

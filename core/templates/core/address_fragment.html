@@ -1,0 +1,35 @@
+<form id="addressForm" action="{% url 'core:edit_address' addr.id %}" method="post">
+    {% csrf_token %}
+    <input type="hidden" name="addr_id" value="{{ addr.id }}">
+    <div style="padding:16px; background:#fff; border-radius:12px; border:1px solid #dce5ec; box-shadow:0 14px 30px rgba(15,33,52,.16);">
+        <h4 style="margin-bottom:10px; color:#0c5f4e;">编辑地址</h4>
+        <div class="form-group">
+            <label>收件人</label>
+            <input class="form-control" name="recipient" value="{{ addr.recipient }}" required>
+        </div>
+        <div class="form-group">
+            <label>联系电话</label>
+            <input class="form-control" name="phone" value="{{ addr.phone }}" required>
+        </div>
+        <div class="form-group">
+            <label>省</label>
+            <input class="form-control" name="province" value="{{ addr.province }}">
+        </div>
+        <div class="form-group">
+            <label>市</label>
+            <input class="form-control" name="city" value="{{ addr.city }}">
+        </div>
+        <div class="form-group">
+            <label>区/县</label>
+            <input class="form-control" name="district" value="{{ addr.district }}">
+        </div>
+        <div class="form-group">
+            <label>详细地址</label>
+            <input class="form-control" name="detail" value="{{ addr.detail }}" required>
+        </div>
+        <div style="margin-top:8px;"><label><input type="checkbox" name="is_default" value="1" {% if addr.is_default %}checked{% endif %}> 设为默认地址</label></div>
+        <div style="margin-top:12px; text-align:right;">
+            <button class="btn" type="submit" style="width:auto;">保存</button>
+        </div>
+    </div>
+</form>

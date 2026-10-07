@@ -1,0 +1,889 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}个人中心{% endblock %}
+
+{% block content %}
+<div class="personal-center-container">
+    <div class="personal-center-sidebar">
+        <div class="sidebar-header">
+            <h3>个人中心</h3>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="?tab=profile" class="nav-item {% if active_tab == 'profile' %}active{% endif %}">
+                <i class="fas fa-user"></i> 我的信息
+            </a>
+            <a href="?tab=password" class="nav-item {% if active_tab == 'password' %}active{% endif %}">
+                <i class="fas fa-lock"></i> 修改密码
+            </a>
+            <a href="?tab=address" class="nav-item {% if active_tab == 'address' %}active{% endif %}">
+                <i class="fas fa-map-marker-alt"></i> 地址管理
+            </a>
+        </nav>
+    </div>
+
+    <div class="personal-center-content">
+        {% if active_tab == 'profile' %}
+            <div class="content-section">
+                <h2>我的信息</h2>
+                <div class="profile-section">
+                    <div class="avatar-section">
+                        <div class="current-avatar">
+                            {% if profile.avatar %}
+                                <img src="{{ profile.avatar.url }}" alt="头像" class="avatar-preview">
+                            {% else %}
+                                <div class="avatar-placeholder">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="avatar-upload">
+                            <form id="avatarForm" enctype="multipart/form-data">
+                                {% csrf_token %}
+                                <input type="file" id="avatarInput" name="avatar" accept="image/*" style="display: none;">
+                                <button type="button" class="btn btn-secondary" onclick="document.getElementById('avatarInput').click()">
+                                    <i class="fas fa-camera"></i> 更换头像
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <form id="profileForm" class="profile-form">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label for="nickname">昵称</label>
+                            <input type="text" id="nickname" name="nickname" value="{{ profile.nickname }}" maxlength="10" placeholder="请输入昵称">
+                        </div>
+                        <div class="form-group">
+                            <label for="school">学校</label>
+                            <input type="text" id="school" name="school" value="{{ profile.school }}" placeholder="请输入学校名称">
+                        </div>
+                        <div class="form-group">
+                            <label>手机号</label>
+                            <div class="mobile-display">{{ profile.mobile|default:"未设置" }}</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">保存修改</button>
+                    </form>
+                </div>
+            </div>
+        {% elif active_tab == 'password' %}
+            <div class="content-section">
+                <h2>修改密码</h2>
+                <form id="passwordForm" class="password-form">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label for="old_password">当前密码</label>
+                        <input type="password" id="old_password" name="old_password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="new_password">新密码</label>
+                        <input type="password" id="new_password" name="new_password" required>
+                        <small class="form-hint">密码长度6-20位，必须包含字母和数字</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm_password">确认新密码</label>
+                        <input type="password" id="confirm_password" name="confirm_password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">修改密码</button>
+                </form>
+            </div>
+        {% elif active_tab == 'address' %}
+            <div class="content-section">
+                <div class="address-header address-header-beauty">
+                    <h2>地址管理</h2>
+                    <button type="button" class="btn btn-add-address" onclick="showAddAddressModal()">
+                        <i class="fas fa-plus"></i> 新增地址
+                    </button>
+                </div>
+                <div class="address-list address-list-beauty">
+                    {% for address in addresses %}
+                    <div class="address-item address-item-beauty {% if address.is_default %}default{% endif %}">
+                        <div class="address-main">
+                            <div class="address-title-row">
+                                <span class="address-name">{{ address.recipient }}</span>
+                                <span class="address-phone">{{ address.phone }}</span>
+                                {% if address.is_default %}
+                                    <span class="default-badge-beauty">默认</span>
+                                {% endif %}
+                            </div>
+                            <div class="address-detail-beauty">
+                                {{ address.province }} {{ address.city }} {{ address.district }} {{ address.detail }}
+                            </div>
+                        </div>
+                        <div class="address-actions-beauty">
+                            <button class="icon-btn edit" title="编辑" onclick="editAddress({{ address.id }})"><i class="fas fa-pen"></i></button>
+                            {% if not address.is_default %}
+                            <button class="icon-btn default" title="设为默认" onclick="setDefaultAddress({{ address.id }})"><i class="fas fa-star"></i></button>
+                            {% endif %}
+                            <button class="icon-btn danger" title="删除" onclick="deleteAddress({{ address.id }})"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="no-address">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <p>暂无收货地址</p>
+                        <button type="button" class="btn btn-add-address" onclick="showAddAddressModal()">添加地址</button>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 地址管理模态框 -->
+<div id="addressModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">新增地址</h3>
+            <span class="modal-close" onclick="closeModal()">&times;</span>
+        </div>
+        <form id="addressForm">
+            {% csrf_token %}
+            <input type="hidden" id="addressId" name="address_id">
+            <input type="hidden" id="action" name="action" value="add">
+
+            <div class="form-group">
+                <label for="recipient">收件人 *</label>
+                <input type="text" id="recipient" name="recipient" required>
+            </div>
+            <div class="form-group">
+                <label for="phone">联系电话 *</label>
+                <input type="tel" id="phone" name="phone" required>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="province">省份</label>
+                    <input type="text" id="province" name="province" placeholder="如：北京市">
+                </div>
+                <div class="form-group">
+                    <label for="city">城市</label>
+                    <input type="text" id="city" name="city" placeholder="如：北京市">
+                </div>
+                <div class="form-group">
+                    <label for="district">区县</label>
+                    <input type="text" id="district" name="district" placeholder="如：朝阳区">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="detail">详细地址 *</label>
+                <textarea id="detail" name="detail" required placeholder="街道、门牌号等"></textarea>
+            </div>
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="is_default" name="is_default" value="1">
+                    设为默认地址
+                </label>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.personal-center-container {
+    max-width: 1200px;
+    margin: 40px auto;
+    display: flex;
+    gap: 30px;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.personal-center-sidebar {
+    width: 250px;
+    background: #f8f9fa;
+    border-right: 1px solid #e9ecef;
+}
+
+.sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.sidebar-header h3 {
+    margin: 0;
+    color: #333;
+    font-size: 18px;
+}
+
+.sidebar-nav {
+    padding: 10px 0;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    text-decoration: none;
+    color: #666;
+    transition: all 0.2s ease;
+}
+
+.nav-item:hover, .nav-item.active {
+    background: #117a65;
+    color: white;
+}
+
+.nav-item i {
+    width: 16px;
+}
+
+.personal-center-content {
+    flex: 1;
+    padding: 30px;
+}
+
+.content-section h2 {
+    margin-bottom: 30px;
+    color: #333;
+    font-size: 24px;
+}
+
+/* 我的信息样式 */
+.profile-section {
+    display: flex;
+    gap: 40px;
+    align-items: flex-start;
+}
+
+.avatar-section {
+    text-align: center;
+    min-width: 200px;
+}
+
+.avatar-preview, .avatar-placeholder {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    margin-bottom: 15px;
+    border: 3px solid #e9ecef;
+}
+
+.avatar-placeholder {
+    background: #f8f9fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    color: #6c757d;
+}
+
+.profile-form {
+    flex: 1;
+    max-width: 500px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: #333;
+}
+
+.form-group input, .form-group textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+.mobile-display {
+    padding: 10px 12px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    color: #666;
+    font-size: 14px;
+}
+
+.form-hint {
+    display: block;
+    margin-top: 5px;
+    color: #6c757d;
+    font-size: 12px;
+}
+
+/* 密码修改样式 */
+.password-form {
+    max-width: 500px;
+}
+
+
+/* 地址管理美化样式 */
+.address-header-beauty {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+.btn-add-address {
+    background: #0f9b8e;
+    color: #fff;
+    border-radius: 24px;
+    font-size: 16px;
+    padding: 10px 28px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(15,155,142,0.08);
+    transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+.btn-add-address:hover {
+    background: #117a65;
+    box-shadow: 0 4px 16px rgba(15,155,142,0.16);
+    transform: translateY(-2px) scale(1.03);
+}
+.address-list-beauty {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+.address-item-beauty {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 2px 16px rgba(15, 33, 52, 0.08);
+    border: 1.5px solid #e0e7ef;
+    padding: 22px 28px 18px 28px;
+    transition: box-shadow 0.2s, border 0.2s;
+    position: relative;
+}
+.address-item-beauty:hover {
+    box-shadow: 0 6px 24px rgba(15, 155, 142, 0.13);
+    border-color: #0f9b8e;
+}
+.address-item-beauty.default {
+    border-color: #16a34a;
+    background: #f0fdf4;
+}
+.address-main {
+    flex: 1;
+    min-width: 0;
+}
+.address-title-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 6px;
+}
+.address-name {
+    font-weight: 700;
+    color: #0f9b8e;
+    font-size: 18px;
+    letter-spacing: 1px;
+}
+.address-phone {
+    color: #64748b;
+    font-size: 15px;
+    font-weight: 500;
+}
+.default-badge-beauty {
+    background: #16a34a;
+    color: #fff;
+    border-radius: 999px;
+    font-size: 13px;
+    padding: 2px 12px;
+    margin-left: 8px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+.address-detail-beauty {
+    color: #475569;
+    font-size: 15px;
+    margin-bottom: 2px;
+    word-break: break-all;
+}
+.address-actions-beauty {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-end;
+    min-width: 60px;
+    margin-left: 32px;
+}
+.icon-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: none;
+    background: #f3f4f6;
+    color: #0f9b8e;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+    box-shadow: 0 1px 4px rgba(15, 33, 52, 0.04);
+    cursor: pointer;
+    outline: none;
+}
+.icon-btn.edit:hover {
+    background: #e0f2fe;
+    color: #0284c7;
+}
+.icon-btn.default {
+    color: #f59e0b;
+}
+.icon-btn.default:hover {
+    background: #fef9c3;
+    color: #d97706;
+}
+.icon-btn.danger {
+    color: #dc3545;
+}
+.icon-btn.danger:hover {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+.no-address {
+    text-align: center;
+    padding: 60px 20px;
+    color: #6c757d;
+}
+.no-address i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    display: block;
+}
+@media (max-width: 768px) {
+    .address-item-beauty {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 18px 12px 14px 12px;
+    }
+    .address-actions-beauty {
+        flex-direction: row;
+        gap: 10px;
+        margin-left: 0;
+        margin-top: 10px;
+        width: 100%;
+        justify-content: flex-end;
+    }
+    .address-title-row {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+}
+
+.no-address {
+    text-align: center;
+    padding: 60px 20px;
+    color: #6c757d;
+}
+
+.no-address i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    display: block;
+}
+
+/* 模态框样式 */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    background: white;
+    margin: 5% auto;
+    padding: 0;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #333;
+}
+
+.modal-close {
+    font-size: 28px;
+    cursor: pointer;
+    color: #999;
+}
+
+.modal-close:hover {
+    color: #333;
+}
+
+#addressForm {
+    padding: 20px;
+}
+
+.form-row {
+    display: flex;
+    gap: 10px;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-weight: normal;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+/* 按钮样式 */
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.2s ease;
+}
+
+.btn-primary {
+    background: #117a65;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #0f6958;
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .personal-center-container {
+        flex-direction: column;
+        margin: 20px;
+    }
+
+    .personal-center-sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .personal-center-content {
+        padding: 20px;
+    }
+
+    .profile-section {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .avatar-section {
+        min-width: auto;
+    }
+
+    .address-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .address-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .form-row {
+        flex-direction: column;
+        gap: 15px;
+    }
+}
+</style>
+
+<script>
+function showMessage(message, type = 'success') {
+    // 创建消息提示
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    // 显示消息
+    setTimeout(() => toast.classList.add('show'), 100);
+
+    // 自动隐藏
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => document.body.removeChild(toast), 300);
+    }, 3000);
+}
+
+// 头像上传
+const avatarInputEl = document.getElementById('avatarInput');
+if (avatarInputEl) {
+    avatarInputEl.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('avatar', file);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+    fetch('{% url "core:update_avatar" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            showMessage(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        showMessage('上传失败，请重试', 'error');
+    });
+});
+}
+
+// 个人信息更新
+const profileFormEl = document.getElementById('profileForm');
+if (profileFormEl) {
+    profileFormEl.addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const formData = new FormData(this);
+
+    fetch('{% url "core:update_profile" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMessage(data.message);
+        } else {
+            showMessage(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        showMessage('保存失败，请重试', 'error');
+    });
+});
+}
+
+// 密码修改
+const passwordFormEl = document.getElementById('passwordForm');
+if (passwordFormEl) {
+    passwordFormEl.addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const formData = new FormData(this);
+
+    fetch('{% url "core:update_password" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMessage(data.message);
+            this.reset();
+        } else {
+            showMessage(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        showMessage('修改失败，请重试', 'error');
+    });
+});
+}
+
+// 地址管理相关函数
+function showAddAddressModal() {
+    document.getElementById('modalTitle').textContent = '新增地址';
+    document.getElementById('action').value = 'add';
+    document.getElementById('addressId').value = '';
+    document.getElementById('addressForm').reset();
+    document.getElementById('addressModal').style.display = 'block';
+}
+
+function editAddress(addressId) {
+    // 这里需要先获取地址详情，然后填充表单
+    const baseUrl = '{% url "core:address_detail" 999 %}'.replace('999', addressId);
+    fetch(baseUrl)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const address = data.address;
+            document.getElementById('modalTitle').textContent = '编辑地址';
+            document.getElementById('action').value = 'edit';
+            document.getElementById('addressId').value = address.id;
+            document.getElementById('recipient').value = address.recipient;
+            document.getElementById('phone').value = address.phone;
+            document.getElementById('province').value = address.province;
+            document.getElementById('city').value = address.city;
+            document.getElementById('district').value = address.district;
+            document.getElementById('detail').value = address.detail;
+            document.getElementById('is_default').checked = address.is_default;
+            document.getElementById('addressModal').style.display = 'block';
+        }
+    });
+}
+
+function deleteAddress(addressId) {
+    if (confirm('确定要删除这个地址吗？')) {
+        const formData = new FormData();
+        formData.append('action', 'delete');
+        formData.append('address_id', addressId);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+        fetch('{% url "core:manage_address" %}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = window.location.pathname + '?tab=address';
+            } else {
+                showMessage(data.message, 'error');
+            }
+        });
+    }
+}
+
+function setDefaultAddress(addressId) {
+    const formData = new FormData();
+    formData.append('action', 'set_default');
+    formData.append('address_id', addressId);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+    fetch('{% url "core:manage_address" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = window.location.pathname + '?tab=address';
+        } else {
+            showMessage(data.message, 'error');
+        }
+    });
+}
+
+function closeModal() {
+    document.getElementById('addressModal').style.display = 'none';
+}
+
+// 确保全局可调用（供页面上 inline onclick 使用）
+window.showAddAddressModal = showAddAddressModal;
+window.editAddress = editAddress;
+window.deleteAddress = deleteAddress;
+window.setDefaultAddress = setDefaultAddress;
+window.closeModal = closeModal;
+
+// 地址表单提交
+const addressFormEl = document.getElementById('addressForm');
+if (addressFormEl) {
+    addressFormEl.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const formData = new FormData(this);
+
+        fetch('{% url "core:manage_address" %}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                closeModal();
+                window.location.href = window.location.pathname + '?tab=address';
+            } else {
+                showMessage(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            showMessage('保存失败，请重试', 'error');
+        });
+    });
+}
+
+// 点击模态框外部关闭
+window.onclick = function(event) {
+    const modal = document.getElementById('addressModal');
+    if (event.target == modal) {
+        closeModal();
+    }
+}
+</script>
+
+<style>
+.toast {
+    position: fixed;
+    top: 100px;
+    right: 20px;
+    background: #28a745;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 3000;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+}
+
+.toast.show {
+    transform: translateX(0);
+}
+
+.toast-error {
+    background: #dc3545;
+}
+</style>
+{% endblock %}

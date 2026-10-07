@@ -1,0 +1,108 @@
+{% extends 'core/base.html' %}
+
+{% block title %}我的收藏{% endblock %}
+
+{% block container_class %}goods-list-container{% endblock %}
+
+{% block extra_css %}
+<style>
+    .favorites-header {
+        background: #fff;
+        border: 1px solid #dce5ec;
+        border-radius: 18px;
+        padding: 24px;
+        margin-bottom: 20px;
+        box-shadow: 0 10px 30px rgba(15, 33, 52, 0.08);
+    }
+
+    .favorites-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 18px;
+    }
+
+    .favorite-card {
+        display: block;
+        background: #fff;
+        border: 1px solid #e4ebf1;
+        border-radius: 14px;
+        overflow: hidden;
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.2s ease;
+    }
+
+    .favorite-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 28px rgba(15, 33, 52, 0.12);
+    }
+
+    .favorite-img {
+        width: 100%;
+        height: 180px;
+        object-fit: cover;
+        background: #f3f6fb;
+    }
+
+    .favorite-info {
+        padding: 14px;
+    }
+
+    .favorite-title {
+        font-size: 16px;
+        font-weight: 700;
+        margin-bottom: 6px;
+    }
+
+    .favorite-price {
+        color: #d97706;
+        font-size: 22px;
+        font-weight: 800;
+        margin-bottom: 6px;
+    }
+
+    .favorite-meta {
+        color: #64748b;
+        font-size: 13px;
+    }
+
+    .empty-box {
+        text-align: center;
+        background: #fff;
+        border: 1px dashed #cdd8e3;
+        border-radius: 16px;
+        padding: 56px 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="favorites-header">
+    <h2 style="margin:0 0 6px;color:#0c5f4e;">我的收藏</h2>
+    <p style="margin:0;color:#64748b;">收藏你感兴趣的商品，方便后续快速查看。</p>
+</div>
+
+{% if favorites %}
+<div class="favorites-grid">
+    {% for fav in favorites %}
+    <a class="favorite-card" href="{% url 'core:goods_detail' goods_id=fav.goods.id %}">
+        {% if fav.goods.image %}
+            <img class="favorite-img" src="{{ fav.goods.image.url }}" alt="{{ fav.goods.title }}">
+        {% else %}
+            <div class="favorite-img" style="display:flex;align-items:center;justify-content:center;color:#94a3b8;">暂无图片</div>
+        {% endif %}
+        <div class="favorite-info">
+            <div class="favorite-title">{{ fav.goods.title }}</div>
+            <div class="favorite-price">¥{{ fav.goods.price }}</div>
+            <div class="favorite-meta">{{ fav.goods.category.name }} · 收藏于 {{ fav.create_time|date:'Y-m-d H:i' }}</div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-box">
+    <p style="font-size:16px;color:#64748b;margin-bottom:14px;">你还没有收藏任何商品</p>
+    <a href="{% url 'core:goods_list' %}" class="btn" style="width:auto;padding:10px 20px;">去逛逛</a>
+</div>
+{% endif %}
+{% endblock %}

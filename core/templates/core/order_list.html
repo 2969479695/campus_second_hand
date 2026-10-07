@@ -1,0 +1,509 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}我的订单 - 校园二手交易平台{% endblock %}
+
+{% block container_class %}order-list-container{% endblock %}
+
+{% block extra_css %}
+<style>
+    .order-header-panel {
+        background: #fff;
+        border: 1px solid #dce5ec;
+        border-radius: 18px;
+        box-shadow: 0 12px 28px rgba(15, 33, 52, 0.08);
+        padding: 24px;
+        margin-bottom: 16px;
+    }
+
+    .order-card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 16px;
+        margin-bottom: 12px;
+    }
+
+    .order-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #eef2f7;
+    }
+
+    .order-status {
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .s-0 { background: #fef3c7; color: #92400e; }
+    .s-1 { background: #dbeafe; color: #1d4ed8; }
+    .s-3 { background: #ccfbf1; color: #0f766e; }
+    .s-4 { background: #dcfce7; color: #166534; }
+    .s-5 { background: #fee2e2; color: #991b1b; }
+    .after-sale-status {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 4px 10px;
+        background: #fff7ed;
+        color: #9a3412;
+        font-size: 12px;
+        font-weight: 700;
+    }
+    .after-sale-info {
+        margin-top: 8px;
+        padding: 10px 12px;
+        border: 1px solid #fed7aa;
+        border-radius: 10px;
+        background: #fffaf3;
+        color: #7c2d12;
+        font-size: 13px;
+        line-height: 1.55;
+    }
+
+    .order-body {
+        display: grid;
+        grid-template-columns: 100px 1fr auto;
+        gap: 12px;
+        align-items: center;
+    }
+
+    .goods-image {
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 10px;
+        background: #f3f6fb;
+    }
+
+    .order-amount {
+        color: #d97706;
+        font-size: 24px;
+        font-weight: 800;
+    }
+
+    .order-actions {
+        margin-top: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .order-actions .btn {
+        width: auto;
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+
+    .empty-state {
+        background: #fff;
+        border: 1px dashed #d1dbe6;
+        border-radius: 14px;
+        text-align: center;
+        padding: 48px 20px;
+    }
+
+    @media (max-width: 780px) {
+        .order-body {
+            grid-template-columns: 1fr;
+        }
+
+        .goods-image {
+            width: 100%;
+            height: 200px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="order-header-panel">
+    <h2 style="margin:0 0 6px;color:#0c5f4e;">我的订单</h2>
+    <p style="margin:0;color:#64748b;">查看订单状态并进行支付、取消、确认收货等操作。</p>
+</div>
+
+{% if orders %}
+    {% for order in orders %}
+    <div class="order-card" data-order-id="{{ order.id }}" data-order-no="{{ order.order_no }}">
+        <div class="order-top">
+            <div>
+                <div style="font-size:14px;color:#475569;">订单号：<strong>{{ order.order_no }}</strong></div>
+                <div style="font-size:12px;color:#94a3b8;">{{ order.create_time|date:'Y-m-d H:i' }}</div>
+            </div>
+            <div>
+                {% if order.order_status == 0 %}<span class="order-status s-0">待支付</span>{% endif %}
+                {% if order.order_status == 1 %}<span class="order-status s-1">已支付/待发货</span>{% endif %}
+                {% if order.order_status == 3 %}<span class="order-status s-3">已发货</span>{% endif %}
+                {% if order.order_status == 4 %}<span class="order-status s-4">已完成</span>{% endif %}
+                {% if order.order_status == 5 %}<span class="order-status s-5">已取消</span>{% endif %}
+            </div>
+        </div>
+
+        <div class="order-body">
+            {% if order.goods.image %}
+                <img src="{{ order.goods.image.url }}" alt="{{ order.goods.title }}" class="goods-image">
+            {% else %}
+                <div class="goods-image" style="display:flex;align-items:center;justify-content:center;color:#94a3b8;">暂无图片</div>
+            {% endif %}
+
+            <div>
+                <div style="font-weight:700; font-size:16px; margin-bottom:6px;">{{ order.goods.title }}</div>
+                <div style="color:#64748b; font-size:13px;">分类：{{ order.goods.category.name }}</div>
+                <div style="color:#64748b; font-size:13px;">卖家：{{ order.goods.seller.username }}</div>
+                {% if order.logistics_company or order.logistics_no %}
+                    <div style="margin-top:6px;color:#475569;font-size:13px;">物流：{{ order.logistics_company }} {% if order.logistics_no %}{{ order.logistics_no }}{% endif %}</div>
+                {% endif %}
+                {% if order.address %}
+                    <div style="margin-top:6px;color:#475569;font-size:13px;">收货：{{ order.address.recipient }} {{ order.address.phone }} {{ order.address.province }}{{ order.address.city }}{{ order.address.district }} {{ order.address.detail }}</div>
+                {% endif %}
+                <div style="margin-top:6px;color:#64748b;font-size:13px;">数量：{{ order.quantity }}</div>
+                {% if order.order_status == 5 and order.cancel_reason %}
+                    <div style="margin-top:6px;color:#991b1b;font-size:13px;">取消原因：{{ order.cancel_reason }}</div>
+                {% endif %}
+                {% if order.aftersale_status != 0 %}
+                    <div class="after-sale-info">
+                        <div><strong>售后：</strong>{{ order.get_aftersale_status_display }}{% if order.aftersale_type %} · {{ order.get_aftersale_type_display }}{% endif %}</div>
+                        {% if order.aftersale_reason %}<div><strong>原因：</strong>{{ order.aftersale_reason }}</div>{% endif %}
+                        {% if order.aftersale_reply %}<div><strong>卖家说明：</strong>{{ order.aftersale_reply }}</div>{% endif %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="order-amount">¥{{ order.amount }}</div>
+        </div>
+
+        <div class="order-actions">
+            {% if order.pay_status == 0 and order.order_status == 0 %}
+                <button class="btn open-pay" data-order-no="{{ order.order_no }}">去支付</button>
+            {% endif %}
+
+            {% if order.order_status == 0 or order.order_status == 1 %}
+                <button class="btn btn-danger cancel-order" data-order-id="{{ order.id }}">取消订单</button>
+            {% endif %}
+
+            {% if order.order_status == 3 %}
+                <button class="btn btn-warning confirm-receive" data-order-id="{{ order.id }}">确认收货</button>
+            {% endif %}
+
+            {% if order.order_status == 5 %}
+                <button class="btn btn-secondary delete-order" data-order-id="{{ order.id }}">删除订单</button>
+            {% endif %}
+
+            {% if order.order_status == 4 and order.id not in comment_order_ids %}
+                <a href="{% url 'core:goods_detail' goods_id=order.goods.id %}#commentForm" class="btn btn-warning">评价</a>
+            {% endif %}
+
+            {% if order.pay_status == 1 and order.order_status == 3 and order.aftersale_status == 0 %}
+                <button class="btn btn-danger open-aftersale" data-order-id="{{ order.id }}">申请售后</button>
+            {% endif %}
+            {% if order.pay_status == 1 and order.order_status == 4 and order.aftersale_status == 0 %}
+                <button class="btn btn-danger open-aftersale" data-order-id="{{ order.id }}">申请售后</button>
+            {% endif %}
+            {% if order.aftersale_status == 1 %}
+                <span class="after-sale-status">售后待卖家处理</span>
+            {% endif %}
+            {% if order.aftersale_status == 2 %}
+                <button class="btn btn-warning complete-aftersale" data-order-id="{{ order.id }}">确认售后完成</button>
+            {% endif %}
+            {% if order.aftersale_status == 3 %}
+                <button class="btn btn-danger open-aftersale" data-order-id="{{ order.id }}">重新申请售后</button>
+            {% endif %}
+            {% if order.aftersale_status == 4 %}
+                <span class="after-sale-status">售后已完成</span>
+            {% endif %}
+
+            <a href="{% url 'core:goods_detail' goods_id=order.goods.id %}" class="btn btn-link">查看商品</a>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+<div class="empty-state">
+    <p style="color:#64748b;margin-bottom:12px;">你还没有任何订单</p>
+    <a href="{% url 'core:goods_list' %}" class="btn" style="width:auto;padding:10px 18px;">去逛商品</a>
+</div>
+{% endif %}
+
+<div id="payModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); align-items:center; justify-content:center; z-index:2000;">
+    <div id="payModalContent" style="max-width:560px; width:92%;"></div>
+</div>
+
+<!-- 取消订单模态框 -->
+<div id="cancelModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); align-items:center; justify-content:center; z-index:2000;">
+    <div style="background:#fff; border-radius:16px; padding:24px; max-width:400px; width:92%; box-shadow:0 20px 25px rgba(0,0,0,0.15);">
+        <h5 style="margin:0 0 16px; color:#0c5f4e; font-size:18px; font-weight:700;">取消订单</h5>
+        <p style="margin:0 0 16px; color:#64748b; font-size:14px;">请输入取消原因（可选）</p>
+        <textarea id="cancelReasonInput" placeholder="例如：已不需要此物品" style="width:100%; padding:10px; border:1px solid #dce5ec; border-radius:8px; font-size:14px; font-family:inherit; resize:none;" rows="3"></textarea>
+        <div style="margin-top:20px; display:flex; gap:10px; justify-content:flex-end;">
+            <button type="button" onclick="document.getElementById('cancelModal').style.display='none';" style="padding:8px 16px; border:1px solid #dce5ec; background:#f8f9fa; border-radius:6px; cursor:pointer; font-weight:600; color:#475569;">取消</button>
+            <button type="button" id="confirmCancelBtn" style="padding:8px 16px; background:#ef4444; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:600;">确认取消订单</button>
+        </div>
+    </div>
+</div>
+
+<div id="afterSaleModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); align-items:center; justify-content:center; z-index:2000;">
+    <div style="background:#fff; border-radius:16px; padding:24px; max-width:440px; width:92%; box-shadow:0 20px 25px rgba(0,0,0,0.15);">
+        <h5 style="margin:0 0 12px; color:#0c5f4e; font-size:18px; font-weight:700;">申请售后</h5>
+        <label for="afterSaleType" style="display:block;margin:0 0 6px;color:#475569;font-weight:700;">售后类型</label>
+        <select id="afterSaleType" style="width:100%;padding:10px;border:1px solid #dce5ec;border-radius:8px;font-size:14px;margin-bottom:12px;">
+            <option value="refund">仅退款</option>
+            <option value="return_refund">退货退款</option>
+            <option value="exchange">换货</option>
+            <option value="repair">维修/补发</option>
+        </select>
+        <label for="afterSaleReason" style="display:block;margin:0 0 6px;color:#475569;font-weight:700;">问题说明</label>
+        <textarea id="afterSaleReason" placeholder="例如：商品与描述不符，希望退货退款" style="width:100%; padding:10px; border:1px solid #dce5ec; border-radius:8px; font-size:14px; font-family:inherit; resize:none;" rows="4"></textarea>
+        <div style="margin-top:20px; display:flex; gap:10px; justify-content:flex-end;">
+            <button type="button" id="cancelAfterSaleBtn" style="padding:8px 16px; border:1px solid #dce5ec; background:#f8f9fa; border-radius:6px; cursor:pointer; font-weight:600; color:#475569;">取消</button>
+            <button type="button" id="submitAfterSaleBtn" style="padding:8px 16px; background:#ef4444; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:600;">提交申请</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+$(function () {
+    let currentAfterSaleOrderId = null;
+
+    function closePayModal() {
+        $('#payModalContent').empty();
+        $('#payModal').hide();
+    }
+
+    $('.open-pay').on('click', function () {
+        const orderNo = $(this).data('order-no');
+        $.ajax({
+            url: "{% url 'core:order_pay' %}",
+            method: 'GET',
+            data: { order_id: orderNo },
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            success: function (html) {
+                $('#payModalContent').html(html);
+                $('#payModal').css('display', 'flex');
+
+                $('#fragmentPayBtn').on('click', function () {
+                    const btn = $(this);
+                    btn.prop('disabled', true).text('处理中...');
+                    $.ajax({
+                        url: "{% url 'core:order_pay' %}",
+                        method: 'POST',
+                        data: { order_id: $('#fragment_order_id').val() },
+                        headers: { 'X-CSRFToken': $('#payModalContent').find("input[name='csrfmiddlewaretoken']").val() },
+                        success: function (resp) {
+                            if (resp && resp.success) {
+                                alert(resp.message || '支付成功');
+                                location.reload();
+                            } else {
+                                alert((resp && resp.message) || '支付失败');
+                                btn.prop('disabled', false).text('确认支付');
+                            }
+                        },
+                        error: function () {
+                            alert('网络或服务器错误');
+                            btn.prop('disabled', false).text('确认支付');
+                        }
+                    });
+                });
+            },
+            error: function () {
+                alert('无法加载支付页面');
+            }
+        });
+    });
+
+    $('#payModal').on('click', function (e) {
+        if (e.target.id === 'payModal') {
+            closePayModal();
+        }
+    });
+
+    $('.confirm-receive').on('click', function () {
+        const orderId = $(this).data('order-id');
+        if (!confirm('确认收货后订单将完成，后续如有问题仍可在订单中申请售后，是否继续？')) {
+            return;
+        }
+        $.ajax({
+            url: "{% url 'core:confirm_order_received' order_id=0 %}".replace('/0/', '/' + orderId + '/'),
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            success: function (resp) {
+                if (resp && resp.success) {
+                    alert(resp.message || '确认收货成功');
+                    location.reload();
+                } else {
+                    alert((resp && resp.message) || '操作失败');
+                }
+            },
+            error: function () {
+                alert('网络或服务器错误');
+            }
+        });
+    });
+
+    $('.open-aftersale').on('click', function () {
+        currentAfterSaleOrderId = $(this).data('order-id');
+        $('#afterSaleType').val('refund');
+        $('#afterSaleReason').val('');
+        $('#afterSaleModal').css('display', 'flex');
+    });
+
+    $('#cancelAfterSaleBtn').on('click', function () {
+        currentAfterSaleOrderId = null;
+        $('#afterSaleModal').hide();
+    });
+
+    $('#submitAfterSaleBtn').on('click', function () {
+        if (!currentAfterSaleOrderId) return;
+        const btn = $(this);
+        const reason = $('#afterSaleReason').val().trim();
+        if (reason.length < 5) {
+            alert('请填写至少5个字的售后原因');
+            return;
+        }
+        btn.prop('disabled', true).text('提交中...');
+        $.ajax({
+            url: "{% url 'core:apply_after_sale' order_id=0 %}".replace('/0/', '/' + currentAfterSaleOrderId + '/'),
+            method: 'POST',
+            data: {
+                aftersale_type: $('#afterSaleType').val(),
+                reason: reason
+            },
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            success: function (resp) {
+                if (resp && resp.success) {
+                    alert(resp.message || '售后申请已提交');
+                    location.reload();
+                } else {
+                    alert((resp && resp.message) || '售后申请失败');
+                    btn.prop('disabled', false).text('提交申请');
+                }
+            },
+            error: function (xhr) {
+                const resp = xhr.responseJSON || {};
+                alert(resp.message || '网络或服务器错误');
+                btn.prop('disabled', false).text('提交申请');
+            }
+        });
+    });
+
+    $('.complete-aftersale').on('click', function () {
+        const orderId = $(this).data('order-id');
+        if (!confirm('确认售后问题已经处理完成吗？')) {
+            return;
+        }
+        $.ajax({
+            url: "{% url 'core:complete_after_sale' order_id=0 %}".replace('/0/', '/' + orderId + '/'),
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            success: function (resp) {
+                if (resp && resp.success) {
+                    alert(resp.message || '售后已完成');
+                    location.reload();
+                } else {
+                    alert((resp && resp.message) || '操作失败');
+                }
+            },
+            error: function (xhr) {
+                const resp = xhr.responseJSON || {};
+                alert(resp.message || '网络或服务器错误');
+            }
+        });
+    });
+
+    $('.cancel-order').on('click', function () {
+        const orderId = $(this).data('order-id');
+        
+        // 显示模态框
+        document.getElementById('cancelModal').style.display = 'flex';
+        
+        // 清空上次的内容
+        document.getElementById('cancelReasonInput').value = '';
+        
+        // 绑定确认按钮
+        document.getElementById('confirmCancelBtn').onclick = function() {
+            const reason = document.getElementById('cancelReasonInput').value.trim();
+            
+            $.ajax({
+                url: "{% url 'core:cancel_order_ajax' order_id=0 %}".replace('/0/', '/' + orderId + '/'),
+                method: 'POST',
+                data: { cancel_reason: reason },
+                headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                success: function (resp) {
+                    if (resp && resp.success) {
+                        alert(resp.message || '订单已取消');
+                        document.getElementById('cancelModal').style.display = 'none';
+                        location.reload();
+                    } else {
+                        alert((resp && resp.message) || '取消失败');
+                    }
+                },
+                error: function () {
+                    alert('网络或服务器错误');
+                }
+            });
+        };
+    });
+    
+    // 删除已取消订单
+    $('.delete-order').on('click', function () {
+        const orderId = $(this).data('order-id');
+        if (!confirm('确认删除该订单吗？删除后将无法恢复。')) {
+            return;
+        }
+        
+        $.ajax({
+            url: "{% url 'core:delete_order' order_id=0 %}".replace('/0/', '/' + orderId + '/'),
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            success: function (resp) {
+                if (resp && resp.success) {
+                    alert(resp.message || '订单已删除');
+                    location.reload();
+                } else {
+                    alert((resp && resp.message) || '删除失败');
+                }
+            },
+            error: function () {
+                alert('网络或服务器错误');
+            }
+        });
+    });
+    
+    // 点击模态框背景关闭
+    document.getElementById('cancelModal').addEventListener('click', function(e) {
+        if (e.target.id === 'cancelModal') {
+            this.style.display = 'none';
+        }
+    });
+
+    document.getElementById('afterSaleModal').addEventListener('click', function(e) {
+        if (e.target.id === 'afterSaleModal') {
+            this.style.display = 'none';
+            currentAfterSaleOrderId = null;
+        }
+    });
+});
+</script>
+{% endblock %}

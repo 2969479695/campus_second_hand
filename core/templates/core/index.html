@@ -1,0 +1,134 @@
+{% extends 'core/base.html' %}
+
+{% block title %}首页 - 校园二手交易平台{% endblock %}
+
+{% block container_class %}index-container{% endblock %}
+
+{% block extra_css %}
+<style>
+    .hero {
+        background: linear-gradient(135deg, rgba(17, 122, 101, 0.12), rgba(245, 158, 11, 0.14));
+        border: 1px solid rgba(17, 122, 101, 0.2);
+        border-radius: 22px;
+        padding: 34px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+
+    .hero h1 {
+        color: #0c5f4e;
+        margin-bottom: 10px;
+    }
+
+    .hero p {
+        color: #4b5563;
+        margin-bottom: 16px;
+    }
+
+    .hero-actions {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .hero-actions .btn {
+        width: auto;
+        padding: 10px 20px;
+    }
+
+    .section-title {
+        margin: 0 0 12px;
+        color: #0f172a;
+    }
+
+    .goods-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 16px;
+    }
+
+    .goods-card {
+        background: #fff;
+        border: 1px solid #dde6ef;
+        border-radius: 14px;
+        overflow: hidden;
+        transition: all 0.2s ease;
+    }
+
+    .goods-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 24px rgba(15, 33, 52, 0.12);
+    }
+
+    .goods-image {
+        width: 100%;
+        height: 170px;
+        object-fit: cover;
+        background: #f3f6fb;
+    }
+
+    .goods-body {
+        padding: 12px;
+    }
+
+    .goods-title {
+        font-size: 16px;
+        font-weight: 700;
+        margin-bottom: 6px;
+    }
+
+    .goods-price {
+        color: #d97706;
+        font-size: 22px;
+        font-weight: 800;
+        margin-bottom: 4px;
+    }
+
+    .goods-meta {
+        color: #64748b;
+        font-size: 12px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1>校园二手交易平台</h1>
+    <p>让每一件闲置物品，重新找到它的价值。</p>
+    <div class="hero-actions">
+        <a href="{% url 'core:goods_list' %}" class="btn">浏览商品</a>
+        {% if user.is_authenticated %}
+            <a href="{% url 'core:goods_publish' %}" class="btn btn-secondary">发布商品</a>
+            <a href="{% url 'core:order_list' %}" class="btn btn-link">我的订单</a>
+        {% else %}
+            <a href="{% url 'core:login' %}" class="btn btn-secondary">登录</a>
+            <a href="{% url 'core:register' %}" class="btn btn-link">注册</a>
+        {% endif %}
+    </div>
+</div>
+
+<h3 class="section-title">最新在售商品</h3>
+{% if goods_list %}
+<div class="goods-grid">
+    {% for goods in goods_list %}
+    <a class="goods-card" href="{% url 'core:goods_detail' goods_id=goods.id %}" style="text-decoration:none;color:inherit;">
+        {% if goods.image %}
+            <img src="{{ goods.image.url }}" alt="{{ goods.title }}" class="goods-image">
+        {% else %}
+            <div class="goods-image" style="display:flex;align-items:center;justify-content:center;color:#94a3b8;">暂无图片</div>
+        {% endif %}
+        <div class="goods-body">
+            <div class="goods-title">{{ goods.title }}</div>
+            <div class="goods-price">¥{{ goods.price }}</div>
+            <div class="goods-meta">{{ goods.category.name }} · {{ goods.seller.username }}</div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div style="background:#fff;border:1px dashed #cfd9e3;border-radius:14px;padding:42px;text-align:center;color:#64748b;">
+    暂无在售商品，快来发布第一件吧。
+</div>
+{% endif %}
+{% endblock %}

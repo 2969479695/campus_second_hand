@@ -1,0 +1,498 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}{{ goods.title }} - 商品详情{% endblock %}
+
+{% block container_class %}goods-detail-container{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-card {
+        background: #fff;
+        border: 1px solid #dce5ec;
+        border-radius: 18px;
+        box-shadow: 0 14px 32px rgba(15, 33, 52, 0.1);
+        padding: 26px;
+        margin-bottom: 18px;
+    }
+
+    .goods-header {
+        display: grid;
+        grid-template-columns: 1.1fr 1fr;
+        gap: 20px;
+    }
+
+    .goods-image-main {
+        width: 100%;
+        height: 360px;
+        object-fit: cover;
+        border-radius: 14px;
+        background: #f3f6fb;
+    }
+
+    .goods-title {
+        font-size: 30px;
+        margin-bottom: 8px;
+        color: #0c5f4e;
+    }
+
+    .goods-price {
+        color: #d97706;
+        font-size: 38px;
+        font-weight: 800;
+        margin-bottom: 10px;
+    }
+
+    .goods-meta {
+        display: grid;
+        gap: 8px;
+        margin-bottom: 14px;
+        color: #475569;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: #dcfce7;
+        color: #166534;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .action-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .action-buttons .btn {
+        width: auto;
+        padding: 10px 18px;
+    }
+
+    .goods-desc {
+        margin-top: 20px;
+        padding-top: 18px;
+        border-top: 1px solid #e2e8f0;
+        line-height: 1.8;
+        color: #475569;
+        white-space: pre-wrap;
+    }
+
+    .comment-item {
+        background: #f8fbfd;
+        border: 1px solid #deebf5;
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 10px;
+    }
+
+    .comment-form textarea,
+    .comment-form select {
+        border: 1px solid #dce5ec;
+        border-radius: 10px;
+        padding: 8px 10px;
+    }
+
+    @media (max-width: 900px) {
+        .goods-header {
+            grid-template-columns: 1fr;
+        }
+
+        .goods-title {
+            font-size: 24px;
+        }
+
+        .goods-price {
+            font-size: 30px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="detail-card">
+    <div class="goods-header">
+        <div>
+            {% if goods.image %}
+                <img src="{{ goods.image.url }}" alt="{{ goods.title }}" class="goods-image-main">
+            {% else %}
+                <div class="goods-image-main" style="display:flex;align-items:center;justify-content:center;color:#94a3b8;">暂无图片</div>
+            {% endif %}
+        </div>
+        <div>
+            <h1 class="goods-title">{{ goods.title }}</h1>
+            <div class="goods-price">¥{{ goods.price }}</div>
+            <div class="goods-meta">
+                <div>商品状态：<span class="status-badge">{{ goods.get_status_display }}</span></div>
+                <div>库存数量：{{ goods.stock }}</div>
+                <div>商品分类：{{ goods.category.name }}</div>
+                <div>发布者：{{ goods.seller.username }}</div>
+                <div>发布时间：{{ goods.create_time|date:"Y年m月d日 H:i" }}</div>
+            </div>
+
+            <div class="action-buttons">
+                <a href="{% url 'core:goods_list' %}" class="btn btn-secondary">返回列表</a>
+                {% if goods.status == 1 and goods.stock > 0 %}
+                    {% if user.is_authenticated and user != goods.seller %}
+                        <button id="buyNowBtn" class="btn" type="button">立即购买</button>
+                        <button id="favoriteBtn" class="btn btn-warning" type="button">{% if is_favorited %}取消收藏{% else %}加入收藏{% endif %}</button>
+                        <button id="openReportModalBtn" class="btn btn-link" type="button">举报商品</button>
+                    {% elif user == goods.seller %}
+                        <span class="btn btn-secondary">这是你发布的商品</span>
+                    {% else %}
+                        <a href="{% url 'core:login' %}" class="btn btn-link">登录后购买</a>
+                    {% endif %}
+                {% else %}
+                    <span class="btn btn-secondary">当前不可购买</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="goods-desc">
+        <h4 style="margin-bottom:8px;color:#0f172a;">商品描述</h4>
+        {{ goods.desc }}
+    </div>
+
+    {% if goods.ai_description or goods.ai_price_suggestion %}
+    <div style="margin-top:14px; background:#f7fbff; border:1px solid #dbeafe; border-radius:12px; padding:12px;">
+        <h4 style="margin-bottom:8px;color:#1d4ed8;">AI 智能分析</h4>
+        {% if goods.ai_description %}<p style="margin:0 0 6px; color:#475569;"><strong>AI 描述：</strong>{{ goods.ai_description }}</p>{% endif %}
+        {% if goods.ai_price_suggestion %}<p style="margin:0; color:#475569;"><strong>AI 价格建议：</strong>¥{{ goods.ai_price_suggestion }}</p>{% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<div class="detail-card">
+    <h3 style="margin-bottom:10px;color:#0c5f4e;">评价区</h3>
+    <div id="comments-list">
+        <p style="color:#64748b;">正在加载评价...</p>
+    </div>
+
+    {% if can_comment %}
+    <div class="comment-form" style="margin-top:16px;">
+        <h4 style="margin-bottom:10px;">发布评价</h4>
+        <form id="commentForm" method="post" action="{% url 'core:add_comment' %}">
+            {% csrf_token %}
+            <input type="hidden" name="goods_id" value="{{ goods.id }}">
+            <input type="hidden" name="order_id" value="{{ eligible_order_id }}">
+            <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+                <label for="ratingSelect">评分：</label>
+                <select name="rating" id="ratingSelect">
+                    <option value="5">5 分</option>
+                    <option value="4">4 分</option>
+                    <option value="3">3 分</option>
+                    <option value="2">2 分</option>
+                    <option value="1">1 分</option>
+                </select>
+            </div>
+            <textarea name="content" id="commentContent" rows="4" style="width:100%;" placeholder="写下你的评价..."></textarea>
+            <button id="submitComment" type="button" class="btn" style="width:auto; padding:9px 16px; margin-top:8px;">提交评价</button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 购买弹窗 -->
+<div id="buyModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:2500; align-items:center; justify-content:center;">
+    <div style="background:#fff; border-radius:14px; border:1px solid #dce5ec; width:min(480px,92vw); padding:24px; box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+        <h3 style="margin:0 0 16px; color:#0c5f4e;">立即购买</h3>
+        <form id="buyForm">
+            {% csrf_token %}
+            <div style="margin-bottom:16px;">
+                <label style="display:block; margin-bottom:8px; font-weight:600; color:#333;">商品信息</label>
+                <div style="background:#f8f9fa; padding:12px; border-radius:8px; font-size:14px;">
+                    <div style="margin-bottom:6px;"><strong>{{ goods.title }}</strong></div>
+                    <div style="color:#666;">¥{{ goods.price }}/件</div>
+                </div>
+            </div>
+            <div style="margin-bottom:16px;">
+                <label for="buyQuantity" style="display:block; margin-bottom:8px; font-weight:600; color:#333;">购买数量</label>
+                <input type="number" id="buyQuantity" name="quantity" min="1" max="{{ goods.stock }}" value="1" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; font-size:14px;">
+                <div style="margin-top:4px; color:#666; font-size:12px;">库存：{{ goods.stock }}件</div>
+            </div>
+            <div style="margin-bottom:16px;">
+                <label for="buyAddress" style="display:block; margin-bottom:8px; font-weight:600; color:#333;">收货地址 *</label>
+                <select id="buyAddress" name="address_id" required style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; font-size:14px;">
+                    <option value="">加载中...</option>
+                </select>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                <button type="button" class="btn btn-secondary" onclick="closeBuyModal()" style="width:auto;">取消</button>
+                <button type="button" id="submitBuyBtn" class="btn" style="width:auto;">提交订单</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="reportModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:2500; align-items:center; justify-content:center;">
+    <div style="background:#fff; border-radius:14px; border:1px solid #dce5ec; width:min(520px,92vw); padding:16px;">
+        <h4 style="margin:0 0 10px; color:#0c5f4e;">举报商品</h4>
+        <form id="reportForm">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="reportReason">举报原因</label>
+                <select id="reportReason" name="reason" class="form-control" required>
+                    <option value="">请选择原因</option>
+                    {% for reason_value, reason_label in report_reason_choices %}
+                        <option value="{{ reason_value }}">{{ reason_label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="reportDetail">补充说明（可选）</label>
+                <textarea id="reportDetail" name="detail" rows="4" class="form-control" placeholder="请简要说明你发现的问题"></textarea>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
+                <button id="closeReportModalBtn" class="btn btn-secondary" type="button" style="width:auto;">取消</button>
+                <button id="submitReportBtn" class="btn" type="button" style="width:auto;">提交举报</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
+<script>
+function getCookie(name) {
+    const cookieValue = document.cookie.split('; ').find(row => row.startsWith(name + '='));
+    return cookieValue ? decodeURIComponent(cookieValue.split('=')[1]) : null;
+}
+
+$(function () {
+    const commentsUrl = "{% url 'core:get_goods_comments' goods.id %}";
+    const favoriteUrl = "{% url 'core:toggle_favorite' goods.id %}";
+    const addressesUrl = "{% url 'core:api_addresses' %}";
+    const orderCreateUrl = "{% url 'core:api_order_create' %}";
+
+    function loadComments() {
+        $.get(commentsUrl, function (resp) {
+            if (!(resp && resp.success)) {
+                $('#comments-list').html('<p style="color:#64748b;">无法加载评价。</p>');
+                return;
+            }
+
+            const list = resp.comments || [];
+            if (!list.length) {
+                $('#comments-list').html('<p style="color:#64748b;">暂无评价。</p>');
+                return;
+            }
+
+            let html = '';
+            list.forEach(function (c) {
+                html += '<div class="comment-item">';
+                html += '<div style="display:flex;justify-content:space-between;gap:10px;">';
+                html += '<strong>' + (c.user || '匿名') + '</strong>';
+                html += '<span style="color:#64748b;font-size:12px;">' + c.created_at + '</span>';
+                html += '</div>';
+                html += '<div style="margin:6px 0;color:#f59e0b;">评分：' + c.rating + ' 分</div>';
+                html += '<div style="color:#334155;">' + (c.content || '') + '</div>';
+                html += '</div>';
+            });
+            $('#comments-list').html(html);
+        }).fail(function () {
+            $('#comments-list').html('<p style="color:#64748b;">无法加载评价。</p>');
+        });
+    }
+
+    loadComments();
+
+    $('#submitComment').on('click', function () {
+        const rating = $('#ratingSelect').val();
+        const content = $('#commentContent').val().trim();
+        const goodsId = '{{ goods.id }}';
+        const orderId = '{{ eligible_order_id }}';
+
+        if (!content) {
+            alert('请输入评价内容');
+            return;
+        }
+
+        const $btn = $(this);
+        const csrf = $("input[name='csrfmiddlewaretoken']").val() || getCookie('csrftoken');
+        $btn.prop('disabled', true).text('提交中...');
+
+        $.ajax({
+            url: "{% url 'core:add_comment' %}",
+            method: 'POST',
+            data: { rating: rating, content: content, goods_id: goodsId, order_id: orderId },
+            headers: { 'X-CSRFToken': csrf },
+            success: function (resp) {
+                if (resp && resp.success) {
+                    alert(resp.message || '评价提交成功');
+                    $('#commentContent').val('');
+                    loadComments();
+                } else {
+                    alert((resp && resp.message) || '提交失败');
+                }
+                $btn.prop('disabled', false).text('提交评价');
+            },
+            error: function () {
+                alert('网络或服务器错误');
+                $btn.prop('disabled', false).text('提交评价');
+            }
+        });
+    });
+
+    $('#favoriteBtn').on('click', function () {
+        const btn = this;
+        fetch(favoriteUrl, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') }
+        })
+            .then(function (resp) { return resp.json(); })
+            .then(function (data) {
+                if (!data.success) {
+                    alert(data.message || '操作失败');
+                    return;
+                }
+                btn.textContent = data.is_favorited ? '取消收藏' : '加入收藏';
+            })
+            .catch(function () {
+                alert('网络异常，请稍后再试');
+            });
+    });
+
+    $('#openReportModalBtn').on('click', function () {
+        $('#reportModal').css('display', 'flex');
+    });
+
+    $('#closeReportModalBtn').on('click', function () {
+        $('#reportModal').hide();
+    });
+
+    $('#reportModal').on('click', function (e) {
+        if (e.target.id === 'reportModal') {
+            $('#reportModal').hide();
+        }
+    });
+
+    $('#submitReportBtn').on('click', function () {
+        const reason = $('#reportReason').val();
+        const detail = $('#reportDetail').val().trim();
+        if (!reason) {
+            alert('请选择举报原因');
+            return;
+        }
+
+        const btn = $(this);
+        btn.prop('disabled', true).text('提交中...');
+
+        $.ajax({
+            url: "{% url 'core:add_goods_report' goods.id %}",
+            method: 'POST',
+            data: { reason: reason, detail: detail },
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            success: function (resp) {
+                if (resp && resp.success) {
+                    alert(resp.message || '举报已提交');
+                    $('#reportReason').val('');
+                    $('#reportDetail').val('');
+                    $('#reportModal').hide();
+                } else {
+                    alert((resp && resp.message) || '举报提交失败');
+                }
+                btn.prop('disabled', false).text('提交举报');
+            },
+            error: function (xhr) {
+                let msg = '网络或服务器错误';
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    msg = data.message || msg;
+                } catch (e) {}
+                alert(msg);
+                btn.prop('disabled', false).text('提交举报');
+            }
+        });
+    });
+
+    // 购买功能
+    function loadUserAddresses() {
+        $.ajax({
+            url: addressesUrl,
+            method: 'GET',
+            success: function (resp) {
+                if (resp && resp.success && resp.addresses) {
+                    let html = '';
+                    resp.addresses.forEach(function (addr) {
+                        const selected = addr.is_default ? 'selected' : '';
+                        html += '<option value="' + addr.id + '" ' + selected + '>' + addr.recipient + ' ' + addr.phone + ' - ' + addr.province + addr.city + addr.district + ' ' + addr.detail + '</option>';
+                    });
+                    if (html) {
+                        $('#buyAddress').html(html);
+                    } else {
+                        $('#buyAddress').html('<option value="">请先在个人中心添加收货地址</option>');
+                    }
+                } else {
+                    $('#buyAddress').html('<option value="">加载失败，请刷新重试</option>');
+                }
+            },
+            error: function () {
+                $('#buyAddress').html('<option value="">网络错误，请刷新重试</option>');
+            }
+        });
+    }
+
+    $('#buyNowBtn').on('click', function () {
+        $('#buyModal').css('display', 'flex');
+        loadUserAddresses();
+    });
+
+    window.closeBuyModal = function () {
+        $('#buyModal').hide();
+    };
+
+    $('#buyModal').on('click', function (e) {
+        if (e.target.id === 'buyModal') {
+            closeBuyModal();
+        }
+    });
+
+    $('#submitBuyBtn').on('click', function () {
+        const quantity = parseInt($('#buyQuantity').val()) || 1;
+        const addressId = $('#buyAddress').val();
+        const goodsId = {{ goods.id }};
+
+        if (!addressId) {
+            alert('请选择收货地址');
+            return;
+        }
+
+        if (quantity < 1 || quantity > {{ goods.stock }}) {
+            alert('购买数量无效');
+            return;
+        }
+
+        const $btn = $(this);
+        $btn.prop('disabled', true).text('提交中...');
+
+        $.ajax({
+            url: orderCreateUrl,
+            method: 'POST',
+            data: {
+                goods_id: goodsId,
+                quantity: quantity,
+                address_id: addressId,
+                csrfmiddlewaretoken: getCookie('csrftoken')
+            },
+            success: function (resp) {
+                if (resp && resp.success) {
+                    alert('订单创建成功！订单号：' + resp.order_no);
+                    window.location.href = '/order/list/';
+                } else {
+                    alert((resp && resp.message) || '创建订单失败');
+                    $btn.prop('disabled', false).text('提交订单');
+                }
+            },
+            error: function () {
+                alert('网络或服务器错误');
+                $btn.prop('disabled', false).text('提交订单');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends 'core/base.html' %}
+{% block title %}编辑商品 - 校园二手交易平台{% endblock %}
+{% block content %}
+<div class="container" style="max-width:600px;margin:40px auto;">
+    <h2 style="margin-bottom:24px;">{% if goods.status == 0 %}编辑/重新上架商品{% else %}编辑商品{% endif %}</h2>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-gradient">{% if goods.status == 0 %}保存并重新上架{% else %}保存修改{% endif %}</button>
+        <a href="{% url 'core:my_goods' %}" class="btn btn-secondary" style="margin-left:12px;">取消</a>
+    </form>
+</div>
+{% endblock %}

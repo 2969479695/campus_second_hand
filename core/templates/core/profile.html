@@ -1,0 +1,112 @@
+{% extends 'core/base.html' %}
+
+{% block title %}个人中心 - 管理面板{% endblock %}
+
+{% block container_class %}order-list-container{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-hero {
+        background: linear-gradient(135deg, rgba(17, 122, 101, 0.16), rgba(245, 158, 11, 0.14));
+        border: 1px solid rgba(17, 122, 101, 0.2);
+        border-radius: 18px;
+        padding: 24px;
+        margin-bottom: 14px;
+    }
+
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(120px, 1fr));
+        gap: 10px;
+        margin-top: 12px;
+    }
+
+    .stat-card {
+        background: #fff;
+        border: 1px solid #dce5ec;
+        border-radius: 12px;
+        text-align: center;
+        padding: 10px;
+    }
+
+    .stat-card .n {
+        font-size: 22px;
+        font-weight: 800;
+        color: #117a65;
+    }
+
+    .quick-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+    }
+
+    .quick-card {
+        background: #fff;
+        border: 1px solid #dce5ec;
+        border-radius: 14px;
+        padding: 14px;
+    }
+
+    .quick-card h4 { margin-bottom: 6px; color: #0f172a; }
+    .quick-card p { margin-bottom: 10px; color: #64748b; font-size: 13px; }
+
+    .quick-card .btn {
+        width: auto;
+        padding: 8px 14px;
+        font-size: 13px;
+    }
+
+    @media (max-width: 860px) {
+        .stat-grid { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profile-hero">
+    <h2 style="margin:0 0 6px; color:#0c5f4e;">个人中心</h2>
+    <p style="margin:0; color:#475569;">{{ request.user.username }}{% if profile.nickname %}（{{ profile.nickname }}）{% endif %}</p>
+
+    <div class="stat-grid">
+        <div class="stat-card"><div class="n">{{ counts.pending }}</div><div>待支付</div></div>
+        <div class="stat-card"><div class="n">{{ counts.paid }}</div><div>待发货</div></div>
+        <div class="stat-card"><div class="n">{{ counts.delivered }}</div><div>已发货</div></div>
+        <div class="stat-card"><div class="n">{{ counts.completed }}</div><div>已完成</div></div>
+    </div>
+</div>
+
+<div class="quick-grid">
+    <div class="quick-card">
+        <h4>商品管理</h4>
+        <p>查看已发布商品、上下架和发货处理。</p>
+        <a href="{% url 'core:my_goods' %}" class="btn">进入</a>
+    </div>
+    <div class="quick-card">
+        <h4>订单管理</h4>
+        <p>处理支付、取消、确认收货等流程。</p>
+        <a href="{% url 'core:order_list' %}" class="btn">查看订单</a>
+    </div>
+    <div class="quick-card">
+        <h4>地址管理</h4>
+        <p>维护默认地址和常用收货信息。</p>
+        <a href="{% url 'core:manage_address' %}" class="btn">管理地址</a>
+    </div>
+    <div class="quick-card">
+        <h4>评价与收藏</h4>
+        <p>查看我的评价和收藏商品。</p>
+        <a href="{% url 'core:my_comments' %}" class="btn btn-secondary">我的评价</a>
+        <a href="{% url 'core:favorite_list' %}" class="btn btn-link">我的收藏</a>
+    </div>
+    <div class="quick-card">
+        <h4>举报记录</h4>
+        <p>查看你提交的商品举报处理进度。</p>
+        <a href="{% url 'core:my_reports' %}" class="btn btn-warning">我的举报</a>
+    </div>
+    <div class="quick-card">
+        <h4>资料设置</h4>
+        <p>修改头像、昵称、密码等个人信息。</p>
+        <a href="{% url 'core:personal_center' %}" class="btn btn-secondary">去设置</a>
+    </div>
+</div>
+{% endblock %}

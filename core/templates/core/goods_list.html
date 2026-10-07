@@ -1,0 +1,267 @@
+{% extends 'core/base.html' %}
+
+{% block title %}商品列表 - 校园二手交易平台{% endblock %}
+
+{% block container_class %}goods-list-container{% endblock %}
+
+{% block extra_css %}
+<style>
+    .panel {
+        background: #fff;
+        border: 1px solid #dce5ec;
+        border-radius: 18px;
+        box-shadow: 0 12px 28px rgba(15, 33, 52, 0.08);
+        padding: 20px;
+        margin-bottom: 18px;
+    }
+
+    .panel h1 {
+        margin-bottom: 6px;
+        color: #0c5f4e;
+    }
+
+    .filter-grid {
+        display: grid;
+        grid-template-columns: 2fr repeat(3, 1fr) 1fr;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .category-filter {
+        margin-top: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .category-btn {
+        border: 1px solid #cfd9e3;
+        border-radius: 999px;
+        padding: 6px 12px;
+        color: #334155;
+        text-decoration: none;
+        background: #fff;
+        transition: all 0.2s ease;
+        font-size: 13px;
+    }
+
+    .category-btn:hover,
+    .category-btn.active {
+        background: #117a65;
+        color: #fff;
+        border-color: #117a65;
+    }
+
+    .goods-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 16px;
+    }
+
+    .goods-card {
+        background: #fff;
+        border-radius: 14px;
+        border: 1px solid #e4ebf1;
+        overflow: hidden;
+        transition: all 0.2s ease;
+        position: relative;
+    }
+
+    .goods-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 28px rgba(15, 33, 52, 0.12);
+    }
+
+    .goods-image {
+        width: 100%;
+        height: 180px;
+        object-fit: cover;
+        background: #f4f7fb;
+    }
+
+    .goods-info {
+        padding: 12px;
+    }
+
+    .goods-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 8px;
+    }
+
+    .goods-price {
+        color: #d97706;
+        font-size: 24px;
+        font-weight: 800;
+        margin-bottom: 8px;
+    }
+
+    .goods-meta {
+        display: flex;
+        justify-content: space-between;
+        color: #64748b;
+        font-size: 12px;
+        margin-bottom: 10px;
+    }
+
+    .goods-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .goods-actions .btn {
+        width: auto;
+        flex: 1;
+        padding: 8px 10px;
+        font-size: 13px;
+    }
+
+    .fav-btn {
+        background: #fff7ed;
+        color: #b45309;
+        border: 1px solid #fed7aa;
+    }
+
+    .fav-btn.active {
+        background: #f97316;
+        border-color: #f97316;
+        color: #fff;
+    }
+
+    .empty-state {
+        background: #fff;
+        border: 1px dashed #cfd9e3;
+        border-radius: 16px;
+        text-align: center;
+        padding: 56px 20px;
+    }
+
+    @media (max-width: 900px) {
+        .filter-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="panel">
+    <h1>商品集市</h1>
+    <p style="color:#64748b; margin-bottom:14px;">按关键词、分类和价格快速找到你需要的校园二手好物。</p>
+
+    <form method="get">
+        <div class="filter-grid">
+            <input class="form-control" type="text" name="q" value="{{ q }}" placeholder="搜索标题/描述/分类">
+            <input class="form-control" type="number" step="0.01" min="0" name="min_price" value="{{ min_price }}" placeholder="最低价">
+            <input class="form-control" type="number" step="0.01" min="0" name="max_price" value="{{ max_price }}" placeholder="最高价">
+            <select class="form-control" name="sort">
+                <option value="latest" {% if sort == 'latest' %}selected{% endif %}>最新发布</option>
+                <option value="price_asc" {% if sort == 'price_asc' %}selected{% endif %}>价格从低到高</option>
+                <option value="price_desc" {% if sort == 'price_desc' %}selected{% endif %}>价格从高到低</option>
+            </select>
+            <button class="btn" type="submit">筛选</button>
+        </div>
+    </form>
+
+    <div class="category-filter">
+        <a href="{% url 'core:goods_list' %}?q={{ q }}&min_price={{ min_price }}&max_price={{ max_price }}&sort={{ sort }}" class="category-btn {% if not current_category %}active{% endif %}">全部</a>
+        {% for category in categories %}
+            <a href="{% url 'core:goods_list' %}?category={{ category.id }}&q={{ q }}&min_price={{ min_price }}&max_price={{ max_price }}&sort={{ sort }}" class="category-btn {% if current_category == category.id %}active{% endif %}">{{ category.name }}</a>
+        {% endfor %}
+    </div>
+</div>
+
+{% if goods_list %}
+<div class="goods-grid">
+    {% for goods in goods_list %}
+    <div class="goods-card">
+        <a href="{% url 'core:goods_detail' goods_id=goods.id %}" style="text-decoration:none;color:inherit;display:block;">
+            {% if goods.image %}
+                <img src="{{ goods.image.url }}" alt="{{ goods.title }}" class="goods-image">
+            {% else %}
+                <div class="goods-image" style="display:flex;align-items:center;justify-content:center;color:#94a3b8;">暂无图片</div>
+            {% endif %}
+            <div class="goods-info">
+                <div class="goods-title">{{ goods.title }}</div>
+                <div class="goods-price">¥{{ goods.price }}</div>
+                <div class="goods-meta">
+                    <span>{{ goods.category.name }}</span>
+                    <span>{{ goods.create_time|date:"Y-m-d" }}</span>
+                </div>
+            </div>
+        </a>
+        <div class="goods-actions" style="padding:0 12px 12px;">
+            <a href="{% url 'core:goods_detail' goods_id=goods.id %}" class="btn btn-link">查看详情</a>
+            {% if user.is_authenticated and user != goods.seller %}
+                <button
+                    class="btn fav-btn {% if goods.id in favorite_goods_ids %}active{% endif %}"
+                    type="button"
+                    data-goods-id="{{ goods.id }}"
+                >
+                    {% if goods.id in favorite_goods_ids %}已收藏{% else %}收藏{% endif %}
+                </button>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <p style="color:#64748b; margin-bottom:14px;">没有找到符合条件的商品</p>
+    <a href="{% url 'core:goods_list' %}" class="btn" style="width:auto;padding:10px 20px;">重置筛选</a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function getCookie(name) {
+    var cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        var cookies = document.cookie.split(';');
+        for (var i = 0; i < cookies.length; i++) {
+            var cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    var favoriteUrlTemplate = "{% url 'core:toggle_favorite' 0 %}";
+
+    document.querySelectorAll('.fav-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var goodsId = this.getAttribute('data-goods-id');
+            var csrftoken = getCookie('csrftoken');
+            var self = this;
+            fetch(favoriteUrlTemplate.replace('/0/', '/' + goodsId + '/'), {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrftoken }
+            })
+                .then(function (resp) { return resp.json(); })
+                .then(function (data) {
+                    if (!data.success) {
+                        alert(data.message || '操作失败');
+                        return;
+                    }
+                    if (data.is_favorited) {
+                        self.classList.add('active');
+                        self.textContent = '已收藏';
+                    } else {
+                        self.classList.remove('active');
+                        self.textContent = '收藏';
+                    }
+                })
+                .catch(function () {
+                    alert('网络异常，请稍后再试');
+                });
+        });
+    });
+});
+</script>
+{% endblock %}

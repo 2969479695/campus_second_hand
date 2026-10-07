@@ -1,0 +1,838 @@
+{% extends 'core/base.html' %}
+
+{% block title %}我卖出的 - 校园二手交易平台{% endblock %}
+
+{% block content %}
+<div class="my-goods-container">
+    <div class="my-goods-header my-goods-header-inline">
+        <h2 class="my-goods-title-inline">我卖出的</h2>
+    </div>
+    {% if goods_list %}
+    <div class="my-goods-list">
+        {% for g in goods_list %}
+        <div class="goods-card flex-row" data-goods-card-id="{{ g.id }}">
+            <div class="goods-img-wrap card-img">
+                {% if g.image %}
+                    <img src="{{ g.image.url }}" alt="{{ g.title }}" class="goods-img">
+                {% else %}
+                    <div class="goods-img-placeholder"><i class="fas fa-image"></i></div>
+                {% endif %}
+            </div>
+            <div class="goods-info card-info">
+                <div class="goods-title">{{ g.title }}</div>
+                <div class="goods-price">¥{{ g.price }}</div>
+                <div class="goods-meta">分类：{{ g.category.name }}</div>
+                <div class="goods-meta">状态：<span class="status-badge status-{{ g.status }}">{{ g.get_status_display }}</span></div>
+                <div class="goods-actions">
+                    {% with orders=g.order_set.all %}
+                    {% if orders %}
+                        {% with order=orders.0 %}
+                            <div class="order-status-badge status-order-{{ order.order_status }}">{{ order.get_order_status_display }}</div>
+                            {% if order.aftersale_status == 1 %}
+                                <button
+                                    class="btn btn-aftersale-handle"
+                                    data-order-id="{{ order.id }}"
+                                    data-buyer="{{ order.buyer.username|escape }}"
+                                    data-type="{{ order.get_aftersale_type_display|escape }}"
+                                    data-reason="{{ order.aftersale_reason|default:''|escape }}"
+                                >处理售后</button>
+                            {% elif order.aftersale_status == 2 %}
+                                <span class="after-sale-status">已同意售后，等待买家确认</span>
+                            {% elif order.aftersale_status == 3 %}
+                                <span class="after-sale-status">售后已拒绝</span>
+                            {% elif order.aftersale_status == 4 %}
+                                <span class="after-sale-status">售后已完成</span>
+                            {% elif order.order_status == 0 %}
+                                <span class="status-text">等待买家支付</span>
+                                <button class="btn btn-seller-cancel" data-order-id="{{ order.id }}">取消订单</button>
+                            {% elif order.order_status == 1 %}
+                                <button class="btn btn-gradient btn-ship" data-order-id="{{ order.id }}">发货</button>
+                                <button class="btn btn-seller-cancel" data-order-id="{{ order.id }}">取消订单</button>
+                            {% elif order.order_status == 3 %}
+                                <button class="btn btn-secondary" disabled>等待买家确认</button>
+                                {% if order.logistics_company and order.logistics_no %}
+                                <div class="logistics-info">{{ order.logistics_company }}<br>{{ order.logistics_no }}</div>
+                                {% endif %}
+                            {% elif order.order_status == 4 %}
+                                <button class="btn btn-success" disabled>交易完成</button>
+                            {% elif order.order_status == 5 %}
+                                <a href="{% url 'core:goods_edit' g.id %}" class="btn btn-edit">编辑</a>
+                                <button class="btn btn-delist" data-goods-id="{{ g.id }}">下架</button>
+                            {% else %}
+                                <span class="status-text">{{ order.get_order_status_display }}</span>
+                            {% endif %}
+                        {% endwith %}
+                    {% else %}
+                        {% if g.status == 1 %}
+                            <div class="order-status-badge status-onsale">在售</div>
+                            <a href="{% url 'core:goods_edit' g.id %}" class="btn btn-edit">编辑</a>
+                            <button class="btn btn-delist" data-goods-id="{{ g.id }}">下架</button>
+                        {% elif g.status == 0 %}
+                            <div class="delisted-action-wrap">
+                                <div class="order-status-badge status-delisted single-delisted-badge">已下架</div>
+                                <a href="{% url 'core:goods_edit' g.id %}" class="btn btn-relist">编辑/重新上架</a>
+                            </div>
+                        {% elif g.status == 2 %}
+                            <div class="order-status-badge status-sold">已售出</div>
+                            <span class="status-text" style="color: #999;">已售出</span>
+                        {% endif %}
+                    {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="no-goods">
+        <i class="fas fa-box-open"></i>
+        <p>您还没有发布任何商品。</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 发货弹窗 -->
+<div id="deliverModal" class="simple-modal" style="display:none;">
+    <div id="deliverModalContent" class="simple-modal-content"></div>
+</div>
+
+<!-- 下架确认弹窗 -->
+<div id="delistModal" class="simple-modal" style="display:none;">
+    <div class="simple-modal-content simple-modal-card">
+        <h3 class="simple-modal-title">确认下架</h3>
+        <p class="simple-modal-text">下架后该商品将不再出现在商品列表中，是否继续？</p>
+        <div class="simple-modal-actions">
+            <button id="cancelDelistBtn" type="button" class="btn btn-secondary">取消</button>
+            <button id="confirmDelistBtn" type="button" class="btn btn-warning">确认下架</button>
+        </div>
+    </div>
+</div>
+
+<div id="afterSaleHandleModal" class="simple-modal" style="display:none;">
+    <div class="simple-modal-content simple-modal-card aftersale-modal-card">
+        <h3 class="simple-modal-title">处理售后申请</h3>
+        <div class="after-sale-detail">
+            <div><strong>买家：</strong><span id="afterSaleBuyer">-</span></div>
+            <div><strong>类型：</strong><span id="afterSaleTypeText">-</span></div>
+            <div><strong>原因：</strong><span id="afterSaleReasonText">-</span></div>
+        </div>
+        <textarea id="afterSaleReplyInput" class="after-sale-reply" rows="4" placeholder="填写处理说明，例如：同意退货，请保持商品配件完整"></textarea>
+        <div class="simple-modal-actions">
+            <button id="cancelAfterSaleHandleBtn" type="button" class="btn btn-secondary">取消</button>
+            <button id="rejectAfterSaleBtn" type="button" class="btn btn-reject-aftersale">拒绝售后</button>
+            <button id="approveAfterSaleBtn" type="button" class="btn btn-aftersale">同意售后</button>
+        </div>
+    </div>
+</div>
+
+<div id="sellerCancelModal" class="simple-modal" style="display:none;">
+    <div class="simple-modal-content simple-modal-card">
+        <h3 class="simple-modal-title">取消订单</h3>
+        <p class="simple-modal-text">取消后订单会关闭；如买家已支付，系统将按模拟退款处理，并恢复商品库存。</p>
+        <textarea id="sellerCancelReasonInput" class="after-sale-reply" rows="4" placeholder="填写取消原因，例如：商品已线下售出或库存异常"></textarea>
+        <div class="simple-modal-actions">
+            <button id="cancelSellerCancelBtn" type="button" class="btn btn-secondary">返回</button>
+            <button id="confirmSellerCancelBtn" type="button" class="btn btn-seller-cancel">确认取消订单</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.my-goods-container {
+    max-width: 980px;
+    margin: 36px auto 0;
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 10px 36px rgba(102,126,234,0.12);
+    padding: 30px 28px;
+}
+.my-goods-header {
+    margin-bottom: 24px;
+    padding: 12px 18px;
+    border-radius: 14px;
+    background: linear-gradient(90deg, rgba(102,126,234,0.14), rgba(118,75,162,0.14));
+    border: 1px solid rgba(102,126,234,0.2);
+}
+.my-goods-title-inline {
+    margin: 0;
+    color: #2a2f55;
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+.my-goods-list {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+.goods-card.flex-row {
+    display: flex;
+    align-items: flex-start;
+    background: #fcfdff;
+    border: 1px solid #e6e9ff;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(102,126,234,0.08);
+    padding: 18px;
+    transition: all .2s ease;
+}
+.goods-card.flex-row:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(102,126,234,0.14);
+}
+.card-img {
+    width: 160px;
+    height: 120px;
+    background: #eef1f7;
+    border-radius: 12px;
+    overflow: hidden;
+    flex-shrink: 0;
+    margin-right: 20px;
+}
+.goods-img,
+.goods-img-placeholder {
+    width: 100%;
+    height: 100%;
+}
+.goods-img { object-fit: cover; }
+.goods-img-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #b7bfd1;
+    font-size: 32px;
+}
+.card-info {
+    flex: 1;
+    min-width: 0;
+}
+.goods-title {
+    font-size: 30px;
+    line-height: 1.2;
+    margin-bottom: 6px;
+    color: #1f2742;
+    font-weight: 800;
+}
+.goods-price {
+    color: #e74c3c;
+    font-size: 34px;
+    font-weight: 800;
+    margin-bottom: 6px;
+}
+.goods-meta {
+    color: #6f7891;
+    font-size: 15px;
+    margin-bottom: 4px;
+}
+.status-badge,
+.order-status-badge {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+}
+.status-badge { margin-left: 6px; }
+.status-1 { background: #e6f7ff; color: #1d7fd3; }
+.status-0 { background: #f1f3f7; color: #8e97a8; }
+.status-2 { background: #fff3e9; color: #d97706; }
+.status-order-0 { background: #fff7db; color: #b7791f; }
+.status-order-1 { background: #e6f7ff; color: #1d7fd3; }
+.status-order-2 { background: #fff3e9; color: #d97706; }
+.status-order-3 { background: #e6fffb; color: #0f766e; }
+.status-order-4 { background: #ecfdf3; color: #2f855a; }
+.status-order-5 { background: #fff1f0; color: #c53030; }
+.goods-actions {
+    margin-top: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.btn-delist,
+.btn-ship,
+.btn-edit,
+.btn-aftersale,
+.btn-reject-aftersale,
+.btn-aftersale-handle,
+.btn-seller-cancel,
+.btn-relist,
+#confirmDelistBtn,
+#cancelDelistBtn {
+    border: none;
+    border-radius: 10px;
+    padding: 9px 18px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .2s ease;
+    text-decoration: none;
+}
+.btn-delist {
+    background: #ffe9b3;
+    color: #9a6700;
+}
+.btn-delist:hover { background: #ffe099; }
+.btn-edit {
+    background: #e0f2fe;
+    color: #0369a1;
+}
+.btn-edit:hover { background: #bae6fd; }
+.btn-ship {
+    background: linear-gradient(90deg, #10b981, #0ea5a4);
+    color: #fff;
+}
+.btn-ship:hover { filter: brightness(0.95); }
+.btn-aftersale,
+.btn-aftersale-handle {
+    background: linear-gradient(90deg, #f97316, #ef4444);
+    color: #fff;
+}
+.btn-aftersale:hover,
+.btn-aftersale-handle:hover { filter: brightness(0.96); }
+.btn-reject-aftersale {
+    background: #fee2e2;
+    color: #991b1b;
+}
+.btn-reject-aftersale:hover { background: #fecaca; }
+.btn-seller-cancel {
+    background: #fee2e2;
+    color: #991b1b;
+}
+.btn-seller-cancel:hover { background: #fecaca; }
+.after-sale-status {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 4px 10px;
+    background: #fff7ed;
+    color: #9a3412;
+    font-size: 12px;
+    font-weight: 700;
+}
+.after-sale-detail {
+    padding: 12px;
+    border: 1px solid #fed7aa;
+    border-radius: 10px;
+    background: #fffaf3;
+    color: #7c2d12;
+    line-height: 1.7;
+    margin-bottom: 12px;
+}
+.after-sale-reply {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #dce5ec;
+    border-radius: 10px;
+    padding: 10px;
+    font-family: inherit;
+    resize: vertical;
+    margin-bottom: 14px;
+}
+.aftersale-modal-card { max-width: 520px; }
+.btn-relist {
+    background: linear-gradient(90deg, #5b7cfa, #6b46c1);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(92,124,250,0.28);
+}
+.btn-relist:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(92,124,250,0.34);
+}
+.delisted-action-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.single-delisted-badge,
+.status-delisted {
+    background: #f1f3f7;
+    color: #7f8798;
+    border: 1px solid #e4e8f3;
+}
+.no-goods {
+    text-align: center;
+    color: #97a0b8;
+    padding: 64px 0;
+}
+.no-goods i {
+    font-size: 48px;
+    margin-bottom: 10px;
+}
+.simple-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(17,24,39,.45);
+    align-items: center;
+    justify-content: center;
+    z-index: 3000;
+}
+.simple-modal-content { padding: 16px; }
+.simple-modal-card {
+    background: #fff;
+    border-radius: 14px;
+    min-width: 340px;
+    box-shadow: 0 16px 42px rgba(17,24,39,.22);
+    padding: 16px;
+}
+.simple-modal-title {
+    margin: 0 0 8px;
+    font-size: 18px;
+    color: #1f2742;
+}
+.simple-modal-text {
+    margin: 0 0 14px;
+    color: #687188;
+}
+.simple-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+#cancelDelistBtn {
+    background: #eef2f7;
+    color: #4f5b72;
+}
+#confirmDelistBtn {
+    background: linear-gradient(90deg, #f59e0b, #f97316);
+    color: #fff;
+}
+@media (max-width: 900px) {
+    .my-goods-container { padding: 18px 14px; }
+    .my-goods-title-inline { font-size: 24px; }
+    .goods-card.flex-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .card-img {
+        width: 100%;
+        height: 180px;
+        margin-right: 0;
+        margin-bottom: 12px;
+    }
+    .goods-title { font-size: 24px; }
+    .goods-price { font-size: 28px; }
+    .delisted-action-wrap {
+        width: 100%;
+        justify-content: space-between;
+    }
+}
+</style>
+{% endblock %}
+{% block extra_js %}
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const csrftoken = getCookie('csrftoken');
+    let currentOrderId = null;
+    let currentGoodsId = null;
+    
+    // 发货模态框
+    const deliverModal = document.getElementById('deliverModal');
+    const deliverModalContent = document.getElementById('deliverModalContent');
+    
+    // 下架模态框
+    const delistModal = document.getElementById('delistModal');
+    const confirmDelistBtn = document.getElementById('confirmDelistBtn');
+    const cancelDelistBtn = document.getElementById('cancelDelistBtn');
+    const afterSaleHandleModal = document.getElementById('afterSaleHandleModal');
+    const cancelAfterSaleHandleBtn = document.getElementById('cancelAfterSaleHandleBtn');
+    const approveAfterSaleBtn = document.getElementById('approveAfterSaleBtn');
+    const rejectAfterSaleBtn = document.getElementById('rejectAfterSaleBtn');
+    const afterSaleReplyInput = document.getElementById('afterSaleReplyInput');
+    let currentAfterSaleOrderId = null;
+    const sellerCancelModal = document.getElementById('sellerCancelModal');
+    const sellerCancelReasonInput = document.getElementById('sellerCancelReasonInput');
+    const cancelSellerCancelBtn = document.getElementById('cancelSellerCancelBtn');
+    const confirmSellerCancelBtn = document.getElementById('confirmSellerCancelBtn');
+    let currentSellerCancelOrderId = null;
+
+    function submitDelist() {
+        if (!currentGoodsId) return;
+
+        if (confirmDelistBtn) {
+            confirmDelistBtn.disabled = true;
+            confirmDelistBtn.textContent = '处理中...';
+        }
+
+        fetch(`/goods/${currentGoodsId}/delist/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken,
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('商品已下架');
+
+                const card = document.querySelector(`.goods-card[data-goods-card-id="${currentGoodsId}"]`);
+                if (card) {
+                    const goodsStatusBadge = card.querySelector('.goods-meta .status-badge');
+                    if (goodsStatusBadge) {
+                        goodsStatusBadge.className = 'status-badge status-0';
+                        goodsStatusBadge.textContent = '已下架';
+                    }
+
+                    const orderStatusBadge = card.querySelector('.order-status-badge');
+                    if (orderStatusBadge) {
+                        orderStatusBadge.className = 'order-status-badge status-delisted';
+                        orderStatusBadge.textContent = '已下架';
+                    }
+
+                    card.querySelectorAll('.btn-delist').forEach(function(btn) { btn.remove(); });
+                    let actions = card.querySelector('.goods-actions');
+                    if (actions) {
+                        actions.innerHTML = `<div class='delisted-action-wrap'>
+                            <div class='order-status-badge status-delisted single-delisted-badge'>已下架</div>
+                            <a href='/goods/${currentGoodsId}/edit/' class='btn btn-relist'>编辑/重新上架</a>
+                        </div>`;
+                    }
+                }
+
+                if (delistModal) {
+                    delistModal.style.display = 'none';
+                }
+                currentGoodsId = null;
+                if (confirmDelistBtn) {
+                    confirmDelistBtn.disabled = false;
+                    confirmDelistBtn.textContent = '确认下架';
+                }
+            } else {
+                alert('下架失败：' + data.message);
+                if (confirmDelistBtn) {
+                    confirmDelistBtn.disabled = false;
+                    confirmDelistBtn.textContent = '确认下架';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('网络错误，请重试');
+            if (confirmDelistBtn) {
+                confirmDelistBtn.disabled = false;
+                confirmDelistBtn.textContent = '确认下架';
+            }
+        });
+    }
+    
+    // 绑定发货按钮点击事件
+    document.querySelectorAll('.btn-ship').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            if (!deliverModal || !deliverModalContent) {
+                alert('发货弹窗初始化失败，请刷新后重试');
+                return;
+            }
+
+            currentOrderId = this.getAttribute('data-order-id');
+            // 加载发货表单
+            fetch(`/order/${currentOrderId}/deliver/fragment/`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                deliverModalContent.innerHTML = html;
+                deliverModal.style.display = 'flex';
+                
+                // 绑定表单提交事件
+                const deliverForm = document.getElementById('deliverFragmentForm');
+                const deliverBtn = document.getElementById('fragmentDeliverBtn');
+                const cancelBtn = document.getElementById('fragmentCancelDeliver');
+
+                if (!deliverForm || !deliverBtn || !cancelBtn) {
+                    alert('发货表单加载失败，请重试');
+                    deliverModal.style.display = 'none';
+                    return;
+                }
+                
+                deliverBtn.addEventListener('click', function() {
+                    const company = document.getElementById('logisticsCompany').value;
+                    const logisticsNo = document.getElementById('logisticsNo').value;
+                    
+                    // 前端校验
+                    if (!company) {
+                        alert('请选择物流公司');
+                        return;
+                    }
+                    if (!logisticsNo || logisticsNo.trim() === '') {
+                        alert('请输入物流单号');
+                        return;
+                    }
+                    
+                    // 可选：物流单号格式校验（简单的数字和字母组合）
+                    const trackingNoPattern = /^[A-Za-z0-9]+$/;
+                    if (!trackingNoPattern.test(logisticsNo.trim())) {
+                        alert('物流单号格式不正确，只能包含字母和数字');
+                        return;
+                    }
+                    
+                    // 禁用按钮防止重复提交
+                    deliverBtn.disabled = true;
+                    deliverBtn.textContent = '提交中...';
+                    
+                    const formData = new FormData();
+                    formData.append('company', company);
+                    formData.append('logistics_no', logisticsNo);
+                    
+                    fetch(`/order/deliver/${currentOrderId}/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': csrftoken
+                        },
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('发货成功！');
+                            deliverModal.style.display = 'none';
+                            location.reload(); // 刷新页面
+                        } else {
+                            alert('发货失败：' + data.message);
+                            deliverBtn.disabled = false;
+                            deliverBtn.textContent = '确认发货';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('网络错误，请重试');
+                        deliverBtn.disabled = false;
+                        deliverBtn.textContent = '确认发货';
+                    });
+                });
+                
+                cancelBtn.addEventListener('click', function() {
+                    deliverModal.style.display = 'none';
+                });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('加载发货表单失败');
+            });
+        });
+    });
+    
+    // 绑定下架按钮点击事件
+    document.querySelectorAll('.btn-delist[data-goods-id]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            currentGoodsId = this.getAttribute('data-goods-id');
+            if (delistModal) {
+                delistModal.style.display = 'flex';
+                return;
+            }
+
+            if (confirm('确认下架该商品吗？')) {
+                submitDelist();
+            }
+        });
+    });
+
+    document.querySelectorAll('.btn-aftersale-handle').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            currentAfterSaleOrderId = this.getAttribute('data-order-id');
+            document.getElementById('afterSaleBuyer').textContent = this.getAttribute('data-buyer') || '-';
+            document.getElementById('afterSaleTypeText').textContent = this.getAttribute('data-type') || '-';
+            document.getElementById('afterSaleReasonText').textContent = this.getAttribute('data-reason') || '-';
+            if (afterSaleReplyInput) {
+                afterSaleReplyInput.value = '';
+            }
+            if (afterSaleHandleModal) {
+                afterSaleHandleModal.style.display = 'flex';
+            }
+        });
+    });
+
+    function submitAfterSaleHandle(action) {
+        if (!currentAfterSaleOrderId) return;
+        const reply = afterSaleReplyInput ? afterSaleReplyInput.value.trim() : '';
+        if (action === 'reject' && reply.length < 3) {
+            alert('拒绝售后时请填写处理说明');
+            return;
+        }
+        const submitBtn = action === 'approve' ? approveAfterSaleBtn : rejectAfterSaleBtn;
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = action === 'approve' ? '同意中...' : '拒绝中...';
+        }
+
+        const formData = new FormData();
+        formData.append('action', action);
+        formData.append('reply', reply);
+
+        fetch(`/order/${currentAfterSaleOrderId}/aftersale/handle/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrftoken },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message || '售后已处理');
+                location.reload();
+            } else {
+                alert(data.message || '售后处理失败');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('网络错误，请重试');
+        })
+        .finally(() => {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = action === 'approve' ? '同意售后' : '拒绝售后';
+            }
+        });
+    }
+
+    if (approveAfterSaleBtn) {
+        approveAfterSaleBtn.addEventListener('click', function() {
+            submitAfterSaleHandle('approve');
+        });
+    }
+
+    if (rejectAfterSaleBtn) {
+        rejectAfterSaleBtn.addEventListener('click', function() {
+            submitAfterSaleHandle('reject');
+        });
+    }
+
+    if (cancelAfterSaleHandleBtn) {
+        cancelAfterSaleHandleBtn.addEventListener('click', function() {
+            if (afterSaleHandleModal) {
+                afterSaleHandleModal.style.display = 'none';
+            }
+            currentAfterSaleOrderId = null;
+        });
+    }
+
+    document.querySelectorAll('.btn-seller-cancel[data-order-id]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            currentSellerCancelOrderId = this.getAttribute('data-order-id');
+            if (sellerCancelReasonInput) {
+                sellerCancelReasonInput.value = '';
+            }
+            if (sellerCancelModal) {
+                sellerCancelModal.style.display = 'flex';
+            }
+        });
+    });
+
+    if (cancelSellerCancelBtn) {
+        cancelSellerCancelBtn.addEventListener('click', function() {
+            if (sellerCancelModal) {
+                sellerCancelModal.style.display = 'none';
+            }
+            currentSellerCancelOrderId = null;
+        });
+    }
+
+    if (confirmSellerCancelBtn) {
+        confirmSellerCancelBtn.addEventListener('click', function() {
+            if (!currentSellerCancelOrderId) return;
+            const reason = sellerCancelReasonInput ? sellerCancelReasonInput.value.trim() : '';
+            if (!confirm('确认由卖家取消该订单吗？')) {
+                return;
+            }
+            confirmSellerCancelBtn.disabled = true;
+            confirmSellerCancelBtn.textContent = '取消中...';
+
+            const formData = new FormData();
+            formData.append('cancel_reason', reason);
+
+            fetch(`/order/${currentSellerCancelOrderId}/seller-cancel/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrftoken },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message || '订单已取消');
+                    location.reload();
+                } else {
+                    alert(data.message || '取消订单失败');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('网络错误，请重试');
+            })
+            .finally(() => {
+                confirmSellerCancelBtn.disabled = false;
+                confirmSellerCancelBtn.textContent = '确认取消订单';
+            });
+        });
+    }
+    
+    // 确认下架
+    if (confirmDelistBtn) {
+        confirmDelistBtn.addEventListener('click', function() {
+            submitDelist();
+        });
+    }
+    
+    // 取消下架
+    if (cancelDelistBtn) {
+        cancelDelistBtn.addEventListener('click', function() {
+            if (delistModal) {
+                delistModal.style.display = 'none';
+            }
+            currentGoodsId = null;
+        });
+    }
+    
+    // 点击模态框背景关闭
+    if (deliverModal) {
+        deliverModal.addEventListener('click', function(e) {
+            if (e.target === deliverModal) {
+                deliverModal.style.display = 'none';
+            }
+        });
+    }
+    
+    if (delistModal) {
+        delistModal.addEventListener('click', function(e) {
+            if (e.target === delistModal) {
+                delistModal.style.display = 'none';
+                currentGoodsId = null;
+            }
+        });
+    }
+
+    if (afterSaleHandleModal) {
+        afterSaleHandleModal.addEventListener('click', function(e) {
+            if (e.target === afterSaleHandleModal) {
+                afterSaleHandleModal.style.display = 'none';
+                currentAfterSaleOrderId = null;
+            }
+        });
+    }
+
+    if (sellerCancelModal) {
+        sellerCancelModal.addEventListener('click', function(e) {
+            if (e.target === sellerCancelModal) {
+                sellerCancelModal.style.display = 'none';
+                currentSellerCancelOrderId = null;
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

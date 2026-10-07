@@ -1,0 +1,176 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}收货地址管理{% endblock %}
+
+{% block container_class %}order-list-container{% endblock %}
+
+{% block extra_css %}
+<style>
+    .address-header {
+        background: #fff;
+        border: 1px solid #dce5ec;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 12px;
+    }
+
+    .address-item {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .address-item.default {
+        border-color: #16a34a;
+        background: #f0fdf4;
+    }
+
+    .default-tag {
+        color: #166534;
+        border: 1px solid #86efac;
+        background: #dcfce7;
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 12px;
+        font-weight: 700;
+        margin-right: 6px;
+    }
+
+    .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .actions .btn { width: auto; padding: 7px 12px; font-size: 13px; }
+
+    .editor-card {
+        background: #fff;
+        border: 1px solid #dce5ec;
+        border-radius: 14px;
+        padding: 14px;
+        margin-top: 12px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="address-header">
+    <h2 style="margin:0 0 6px; color:#0c5f4e;">收货地址管理</h2>
+    <p style="margin:0; color:#64748b;">维护常用地址，提升下单和发货效率。</p>
+</div>
+
+<div id="address-list">
+    {% if addresses %}
+        {% for a in addresses %}
+            <div class="address-item {% if a.is_default %}default{% endif %}">
+                <div>
+                    <div>
+                        {% if a.is_default %}<span class="default-tag">默认地址</span>{% endif %}
+                        <strong>{{ a.recipient }}</strong> · {{ a.phone }}
+                    </div>
+                    <div style="font-size:13px; color:#64748b; margin-top:4px;">{{ a.province }} {{ a.city }} {{ a.district }} {{ a.detail }}</div>
+                </div>
+                <div class="actions">
+                    <button class="btn btn-link edit-addr" data-id="{{ a.id }}">编辑</button>
+                    <button class="btn btn-danger del-addr" data-id="{{ a.id }}">删除</button>
+                    {% if not a.is_default %}
+                    <button class="btn btn-secondary set-default" data-id="{{ a.id }}">设为默认</button>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div style="background:#fff; border:1px dashed #cfd9e3; border-radius:12px; padding:28px; text-align:center; color:#64748b;">暂无地址，请先添加。</div>
+    {% endif %}
+</div>
+
+<div class="editor-card">
+    <h3 style="margin-bottom:10px;">新增地址</h3>
+    <form id="addAddressForm">
+        {% csrf_token %}
+        <div class="form-group">
+            <label>收件人</label>
+            <input class="form-control" name="recipient" placeholder="例如：张同学">
+        </div>
+        <div class="form-group">
+            <label>联系电话</label>
+            <input class="form-control" name="phone" placeholder="例如：13800138000">
+        </div>
+        <div class="form-group">
+            <label>省市区 + 详细地址</label>
+            <input class="form-control" name="province" placeholder="省">
+            <input class="form-control" name="city" placeholder="市" style="margin-top:6px;">
+            <input class="form-control" name="district" placeholder="区/县" style="margin-top:6px;">
+            <input class="form-control" name="detail" placeholder="详细地址" style="margin-top:6px;">
+        </div>
+        <div style="margin-top:8px;"><label><input type="checkbox" name="is_default" value="1"> 设为默认地址</label></div>
+        <div style="margin-top:12px;"><button class="btn" type="button" id="addAddrBtn" style="width:auto;">添加地址</button></div>
+    </form>
+</div>
+
+<div id="addrModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); align-items:center; justify-content:center; z-index:2500;">
+    <div id="addrModalContent" style="width:min(560px, 92vw);"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
+<script>
+$(function(){
+    function getCSRF(){ return $('input[name="csrfmiddlewaretoken"]').first().val(); }
+
+    $('#addAddrBtn').on('click', function(){
+        const data = $('#addAddressForm').serialize();
+        $.post('{% url "core:add_address" %}', data, function(resp){
+            if(resp && resp.success){ alert(resp.message || '添加成功'); location.reload(); }
+            else alert((resp && resp.message) || '添加失败');
+        }).fail(function(){ alert('网络或服务器错误'); });
+    });
+
+    $('.del-addr').on('click', function(){
+        if(!confirm('确认删除该地址？')) return;
+        const id = $(this).data('id');
+        $.post('{% url "core:delete_address" 0 %}'.replace('/0/','/'+id+'/' ), { csrfmiddlewaretoken: getCSRF() }, function(resp){
+            if(resp && resp.success){ alert(resp.message || '删除成功'); location.reload(); } else alert((resp && resp.message) || '删除失败');
+        }).fail(function(){ alert('网络或服务器错误'); });
+    });
+
+    $('.set-default').on('click', function(){
+        const id = $(this).data('id');
+        $.post('{% url "core:set_default_address" 0 %}'.replace('/0/','/'+id+'/' ), { csrfmiddlewaretoken: getCSRF() }, function(resp){
+            if(resp && resp.success){ alert(resp.message || '已设为默认'); location.reload(); } else alert((resp && resp.message) || '设置失败');
+        }).fail(function(){ alert('网络或服务器错误'); });
+    });
+
+    $('.edit-addr').on('click', function(){
+        const id = $(this).data('id');
+        $('#addrModalContent').html('<div style="background:#fff; padding:16px; border-radius:12px;">加载中...</div>');
+        $('#addrModal').css('display','flex');
+        $.get('{% url "core:address_fragment" 0 %}'.replace('/0/','/'+id+'/' ), function(html){
+            $('#addrModalContent').html(html);
+        }).fail(function(){
+            $('#addrModalContent').html('<div style="padding:12px; background:#fff; border-radius:8px;">获取表单失败</div>');
+        });
+    });
+
+    $(document).on('submit', '#addressForm', function(e){
+        e.preventDefault();
+        const $form = $(this);
+        $.post($form.attr('action'), $form.serialize(), function(resp){
+            if(resp && resp.success){
+                alert(resp.message || '更新成功');
+                location.reload();
+            } else {
+                alert((resp && resp.message) || '更新失败');
+            }
+        }).fail(function(){ alert('网络或服务器错误'); });
+    });
+
+    $('#addrModal').on('click', function(e){ if(e.target.id === 'addrModal'){ $('#addrModal').hide(); } });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,42 @@
+<div style="padding:18px; border:1px solid #dce5ec; border-radius:12px; max-width:560px; margin:0 auto; background:#fff; box-shadow:0 14px 30px rgba(15,33,52,.14);">
+    <h3 style="margin-bottom:10px; color:#0c5f4e;">填写发货信息</h3>
+
+    <!-- 买家收货地址 -->
+    {% if order.address %}
+    <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:14px; margin-bottom:16px;">
+        <div style="font-weight:700; color:#166534; margin-bottom:6px;">
+            <i class="fas fa-map-marker-alt"></i> 买家收货地址
+        </div>
+        <div style="color:#374151; line-height:1.7;">
+            <div><strong>收件人：</strong>{{ order.address.recipient }}</div>
+            <div><strong>电话：</strong>{{ order.address.phone }}</div>
+            <div><strong>地址：</strong>{{ order.address.province|default:'' }}{{ order.address.city|default:'' }}{{ order.address.district|default:'' }} {{ order.address.detail }}</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <form id="deliverFragmentForm" method="post" action="{% url 'core:mark_order_delivered' order_id=order.id %}">
+        {% csrf_token %}
+        <input type="hidden" name="order_id" value="{{ order.id }}">
+        <div class="form-group" style="margin-bottom: 10px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: 600;">物流公司 <span style="color: red;">*</span></label>
+            <select class="form-control" name="company" id="logisticsCompany" required>
+                <option value="">请选择物流公司</option>
+                <option value="顺丰速运">顺丰速运</option>
+                <option value="圆通速递">圆通速递</option>
+                <option value="中通快递">中通快递</option>
+                <option value="韵达快递">韵达快递</option>
+                <option value="中国邮政">中国邮政</option>
+                <option value="其他">其他</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 10px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: 600;">物流单号 <span style="color: red;">*</span></label>
+            <input class="form-control" name="logistics_no" id="logisticsNo" placeholder="请输入快递单号" required>
+        </div>
+        <div style="margin-top:12px; display: flex; gap: 8px;">
+            <button id="fragmentDeliverBtn" type="button" class="btn" style="flex: 1;">确认发货</button>
+            <button type="button" id="fragmentCancelDeliver" class="btn btn-secondary" style="flex: 1;">取消</button>
+        </div>
+    </form>
+</div>

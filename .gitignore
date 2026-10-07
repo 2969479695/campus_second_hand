@@ -1,0 +1,63 @@
+# ============================================================
+# 校园二手交易平台 —— Git 忽略规则
+# ============================================================
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ---------- 虚拟环境 ----------
+venv/
+env/
+ENV/
+.venv/
+.codex_pydeps/
+
+# ---------- Django ----------
+*.log
+db.sqlite3-journal
+local_settings.py
+staticfiles/
+media/avatar/avatar*.gif
+media/goods/macbook*.gif
+
+# ---------- 数据库（含演示数据，有意保留） ----------
+# 说明：db.sqlite3 里是演示用的测试数据（5 个测试用户、7 件商品、3 个订单），
+# 保留它是为了让别人 clone 之后能直接跑起来看效果。
+# 如果数据库里有真实用户数据，请取消下面这行的注释。
+# db.sqlite3
+
+# ---------- IDE / 编辑器 ----------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---------- 操作系统 ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- 论文与个人材料（不进代码仓库） ----------
+2120222308.docx
+2120222308.pdf
+
+# ---------- 临时脚本与中间产物 ----------
+tmp/
+scripts/
+django_run.log
+django_stderr.log
+django_stdout.log
+
+# ---------- 本机专用脚本（含本机 Python 路径，不适合上传） ----------
+安装环境.bat
+GitHub上传步骤.md
+
