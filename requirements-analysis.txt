@@ -1,9 +1,0 @@
-# 数据分析脚本所需的额外依赖
-# 安装：pip install -r requirements-analysis.txt
-#
-# 说明：Web 应用本体（requirements.txt）不依赖这些包，
-#       只有运行 analysis/run_analysis.py 生成图表时才需要。
--r requirements.txt
-
-matplotlib==3.11.2
-numpy==2.5.3

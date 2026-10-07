@@ -67,6 +67,9 @@ python manage.py runserver
 | **运营数据看板** | **<http://127.0.0.1:8000/statistics/>** |
 | 后台管理 | <http://127.0.0.1:8000/admin/>（需先 `python manage.py createsuperuser`） |
 
+> **Windows 用户**：完成上述安装后，可直接双击项目根目录的 `启动.bat`
+> 启动服务并自动打开浏览器，无需手动敲命令。
+
 > 仓库内置 `db.sqlite3`，含演示数据（5 个用户、7 件商品、3 笔订单、5 个分类）。
 > 想直接查看带数据的界面效果，可跳过第 3 步；想从空库开始则执行第 3 步。
 >
@@ -140,7 +143,8 @@ status_rows = (Order.objects.values('order_status')
 Markdown 报告：
 
 ```bash
-pip install -r requirements-analysis.txt
+# 需要额外安装绘图依赖（可选，不影响网站运行）
+pip install -r analysis/requirements.txt
 python analysis/run_analysis.py
 ```
 
@@ -349,14 +353,15 @@ campus_second_hand/
 ├── analysis/                    # 数据分析工具
 │   ├── queries.sql              # 10 个业务分析 SQL 查询
 │   ├── run_analysis.py          # 分析脚本（生成图表与报告）
+│   ├── requirements.txt         # 分析脚本的额外依赖（可选）
 │   └── 数据分析报告.md            # 自动生成的分析报告
 ├── docs/images/                 # 架构图、ER 图、界面截图
 ├── docs/images/analysis/        # 分析图表与数据看板截图
 ├── media/                       # 用户上传文件（头像、商品图）
 ├── db.sqlite3                   # 演示数据库
 ├── manage.py
-├── requirements.txt             # 运行 Web 应用所需依赖
-└── requirements-analysis.txt    # 运行分析脚本的额外依赖
+├── requirements.txt             # 项目依赖
+└── 启动.bat                      # Windows 一键启动脚本（双击运行）
 ```
 
 ---

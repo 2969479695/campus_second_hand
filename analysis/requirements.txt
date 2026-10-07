@@ -1,0 +1,12 @@
+# 数据分析脚本的依赖（可选）
+#
+# 安装（在项目根目录执行）：
+#     pip install -r analysis/requirements.txt
+#
+# 说明：Web 应用本体不依赖这些包，只有需要重新运行
+#       analysis/run_analysis.py 生成图表与报告时才要装。
+#       其中 matplotlib 体积较大，不影响网站运行。
+-r ../requirements.txt
+
+matplotlib==3.11.2
+numpy==2.5.3
